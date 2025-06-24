@@ -12,14 +12,25 @@ git clone https://github.com/Divya19gupta/PrepBot.git
 cd PrepBot
 ```
 
-### 2. Add Your API Keys
+### 2. Add Your API Keys 
 
 Create a `.env` file in the `server/` folder with the following format:
 
 ```env
 GEMINI_API_KEY=your_gemini_key
 ```
-### 3. Run the App
+
+### 3. Install Whisper.cpp in the Project
+
+```cd server
+git clone https://github.com/ggerganov/whisper.cpp.git
+cd whisper.cpp
+make
+sh ./models/download-ggml-model.sh base.en
+cmake -B build
+```
+
+### 4. Run the App
 
 #### Backend
 
