@@ -19,6 +19,7 @@ Create a `.env` file in the `server/` folder with the following format:
 ```env
 GEMINI_API_KEY=your_gemini_key
 ```
+Create your own Gemini API key: https://aistudio.google.com/app/apikey
 
 ### 3. Install Whisper.cpp in the Project
 
