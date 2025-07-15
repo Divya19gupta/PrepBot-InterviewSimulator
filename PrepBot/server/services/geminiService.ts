@@ -9,11 +9,9 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
 const model = genAI.getGenerativeModel({ model: "models/gemini-2.0-flash" });
 
 export async function generateInterviewQuestions(): Promise<string[]> {
-  const prompt = `Generate exactly 5 realistic related to software engineer / developer role, job interview questions suitable for 18 – 23 year olds applying for their first job. 
-
+  const prompt = `Generate exactly 5 every time a unique and realistic related to software engineer / developer role, job interview questions suitable for 18 – 23 year olds applying for their first job. 
 Only return the questions in plain text bullet points (e.g., "- Question 1", "- Question 2") with no additional explanation or formatting. 
-
-Do not include introductions, commentary, or what the interviewer is looking for — just the questions`;
+Do not include introductions, commentary, or what the interviewer is looking for — just the questions.`;
 
   try {
     const result = await model.generateContent({

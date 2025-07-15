@@ -70,11 +70,27 @@ export default function FeedbackModal({
           <Typography variant="subtitle2" sx={{ color: '#555', mb: 1 }}>
             <strong>Feedback:</strong>
           </Typography>
-          <Typography variant="body1" sx={{ fontSize: '1rem', lineHeight: 1.6 }}>
-            <ReactMarkdown>
-              {current?.feedback || 'No feedback available.'}
-            </ReactMarkdown>
-          </Typography>
+          <ReactMarkdown
+            components={{
+              p: ({ children }) => (
+                <Typography
+                  variant="body1"
+                  sx={{ fontSize: '1rem', lineHeight: 1.6 }}
+                  paragraph
+                >
+                  {children}
+                </Typography>
+              ),
+              ul: ({ children }) => (
+                <ul style={{ paddingLeft: '1.5rem', marginTop: 0 }}>{children}</ul>
+              ),
+              li: ({ children }) => (
+                <li style={{ marginBottom: '0.5rem' }}>{children}</li>
+              ),
+            }}
+          >
+            {current?.feedback || 'No feedback available.'}
+          </ReactMarkdown>
         </Box>
       </Fade>
     </Modal>

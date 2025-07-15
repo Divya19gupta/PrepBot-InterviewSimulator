@@ -30,14 +30,19 @@ const InterviewSimulator: React.FC = () => {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
 
-  useEffect(() => {
-    const fetchQuestions = async () => {
-      const res = await fetch("http://localhost:3001/api/questions");
-      const data = await res.json();
-      setQuestions(data.questions.slice(0, TOTAL_QUESTIONS));
-    };
-    fetchQuestions();
-  }, []);
+ const hasFetchedRef = useRef(false);
+
+useEffect(() => {
+  if (hasFetchedRef.current) return;
+
+  const fetchQuestions = async () => {
+    const res = await fetch("http://localhost:3001/api/questions");
+    const data = await res.json();
+    setQuestions(data.questions.slice(0, TOTAL_QUESTIONS));
+    hasFetchedRef.current = true;
+  };
+  fetchQuestions();
+}, []);
 
   const startRecording = async () => {
     setTranscript("");
