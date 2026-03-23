@@ -1,0 +1,33 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Session {
+  id        String   @id
+  userId    String
+  name      String
+  email     String
+  language  String
+  answers   Answer[]
+  createdAt DateTime @default(now())
+}
+
+model Answer {
+  id          Int      @id @default(autoincrement())
+  sessionId   String
+  question    String
+  transcript  String?
+  feedback    String?
+  audioFile   String
+  attempts    Int      @default(1)
+  createdAt   DateTime @default(now())
+
+  session Session @relation(fields: [sessionId], references: [id])
+
+  @@unique([sessionId, question])  // <-- add this line
+}

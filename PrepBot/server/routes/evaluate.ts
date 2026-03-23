@@ -1,9 +1,5 @@
 import express from "express";
-import fs from "fs";
-import path from "path";
-import { v4 as uuidv4 } from "uuid";
-import { transcribeAudio } from "../services/whisperService";
-import { evaluateAnswer } from "../services/geminiService";
+import { evaluateAnswer } from "../services/openaiService";
 
 const router = express.Router();
 
@@ -11,12 +7,30 @@ router.post("/", async (req, res) => {
   try {
     const { question, answer } = req.body;
 
+    if (!question || !answer) {
+      res.status(400).json({ error: "Audio was not clear. Please try again." });
+      return;
+    }
+
     const result = await evaluateAnswer(question, answer);
-    res.json({ transcript: answer, ...result });
+
+    // ✅ Type-safe handling
+    const feedbackText =
+      typeof result === "string"
+        ? result
+        : result?.feedback || "No feedback generated";
+
+    res.json({
+      feedback: feedbackText,
+    });
 
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Failed to evaluate answer" });
+    console.error("❌ Evaluate error:", err);
+
+    res.status(500).json({
+      feedback: "Evaluation failed. Please try again.",
+    });
+    return;
   }
 });
 
