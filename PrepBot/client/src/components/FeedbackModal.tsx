@@ -57,7 +57,7 @@ export default function FeedbackModal({
             Evaluation Feedback
           </Typography>
 
-          <Typography variant="subtitle2" sx={{ color: '#555', mb: 1 }}>
+          {/* <Typography variant="subtitle2" sx={{ color: '#555', mb: 1 }}>
             <strong>Transcription:</strong>
           </Typography>
           <Typography
@@ -65,7 +65,7 @@ export default function FeedbackModal({
             sx={{ mb: 3, backgroundColor: '#f5f5f5', p: 2, borderRadius: 2 }}
           >
             {current?.answer || 'No transcription available.'}
-          </Typography>
+          </Typography> */}
 
           <Typography variant="subtitle2" sx={{ color: '#555', mb: 1 }}>
             <strong>Feedback:</strong>

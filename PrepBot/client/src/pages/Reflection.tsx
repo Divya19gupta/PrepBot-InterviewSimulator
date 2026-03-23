@@ -1,139 +1,208 @@
-import React, { useState, useEffect } from 'react';
-import { Box, Button, Typography, TextField } from '@mui/material';
-import { motion, Variants } from 'framer-motion';
-import { useNavigate } from 'react-router-dom';
+// import React, { useState, useEffect } from 'react';
+// import { Box, Button, Typography, TextField, Slider, Dialog, DialogActions, DialogContent, DialogTitle } from '@mui/material';
+// import { useNavigate } from 'react-router-dom';
+// import TopBar from './TopBar';
 
-const reflectionPrompts = [
-  "Which answer are you most proud of?",
-  "Which question felt hardest, and why?",
-  "What would you improve next time?",
-  "How did you feel during this interview?",
-];
+// type ReflectionAnswer = {
+//   text: string;
+//   rating: number | null;
+// };
 
-const containerVariants: Variants = {
-  hidden: { opacity: 0, x: 100 },
-  visible: { 
-    opacity: 1, 
-    x: 0,
-    transition: { type: 'spring', stiffness: 100, damping: 20 }
-  },
-  exit: { opacity: 0, x: -100, transition: { duration: 0.3 } }
-};
+// type Section = {
+//   title: string;
+//   questions: {
+//     text: string;
+//     hasRating: boolean;
+//   }[];
+// };
 
-const ReflectionPage: React.FC = () => {
-  const navigate = useNavigate();
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const [answers, setAnswers] = useState<string[]>([]);
+// // ✅ GROUPED BY RQs
+// const sections: Section[] = [
+//   {
+//     title: "RQ1: Fairness & Accuracy",
+//     questions: [
+//       { text: "How accurately do you think the system understood your spoken answers?", hasRating: true },
+//       { text: "Did you notice any errors or mismatches in the transcription?", hasRating: true },
+//       { text: "How fair do you think the feedback was?", hasRating: true },
+//     ],
+//   },
+//   {
+//     title: "RQ2: Blame & Trust",
+//     questions: [
+//       { text: "What was the main reason for any incorrect feedback?", hasRating: false },
+//       { text: "To what extent do you trust this system?", hasRating: true },
+//     ],
+//   },
+//   {
+//     title: "RQ3: System Perception",
+//     questions: [
+//       { text: "Did your accent or way of speaking influence the system?", hasRating: false },
+//       { text: "How confident are you in relying on this system for interview preparation?", hasRating: true },
+//     ],
+//   },
+// ];
 
-  // Load saved answers from localStorage on mount
-  useEffect(() => {
-    const saved = localStorage.getItem('reflectionAnswers');
-    if (saved) {
-      setAnswers(JSON.parse(saved));
-    } else {
-      setAnswers(new Array(reflectionPrompts.length).fill(''));
-    }
-  }, []);
+// const ReflectionPage: React.FC = () => {
+//   const navigate = useNavigate();
+//   const [sectionIndex, setSectionIndex] = useState(0);
+//   const [answers, setAnswers] = useState<ReflectionAnswer[][]>([]);
 
-  // Save answers to localStorage whenever answers change
-  useEffect(() => {
-    localStorage.setItem('reflectionAnswers', JSON.stringify(answers));
-  }, [answers]);
+//   const [popup, setPopup] = useState<{ open: boolean; title: string; message: string; onConfirm?: () => void; confirmText?: string; }>({ open: false, title: "", message: "" });
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const newAnswers = [...answers];
-    newAnswers[currentIndex] = e.target.value;
-    setAnswers(newAnswers);
-  };
+//   // ----------------- SESSION CHECK -----------------
+//   const [sessionId, setSessionId] = useState<string | null>(null);
+//   useEffect(() => {
+//     const stored = localStorage.getItem("userData");
+//     if (!stored) navigate("/", { replace: true });
+//     const parsed = JSON.parse(stored || "{}");
+//     setSessionId(parsed.sessionId || null);
+//   }, [navigate]);
 
-  const goNext = () => {
-    if (currentIndex < reflectionPrompts.length - 1) {
-      setCurrentIndex(currentIndex + 1);
-    } else {
-      // On finish, navigate home (or anywhere)
-      navigate('/');
-    }
-  };
+//   // ----------------- INIT STATE -----------------
+//   useEffect(() => {
+//     const initial = sections.map(section =>
+//       section.questions.map(() => ({ text: "", rating: null }))
+//     );
 
-  const goPrev = () => {
-    if (currentIndex > 0) {
-      setCurrentIndex(currentIndex - 1);
-    }
-  };
+//     // ✅ Load saved partial responses from localStorage
+//     if (sessionId) {
+//       const storedAnswers = localStorage.getItem(`reflection_${sessionId}`);
+//       if (storedAnswers) {
+//         setAnswers(JSON.parse(storedAnswers));
+//         return;
+//       }
+//     }
 
-  return (
-    <Box
-      sx={{
-        minHeight: '100vh',
-        p: 4,
-        background: 'linear-gradient(135deg, #e3f2fd, #ffffff)',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-      }}
-    >
-      <Typography variant="h4" align="center" color="#07466E" gutterBottom>
-        Reflection Time
-      </Typography>
+//     setAnswers(initial);
+//   }, [sessionId]);
 
-      <motion.div
-        key={currentIndex} // key triggers re-animation on change
-        variants={containerVariants}
-        initial="hidden"
-        animate="visible"
-        exit="exit"
-        style={{
-          padding: 24,
-          backgroundColor: '#f0f8ff',
-          borderRadius: 12,
-          boxShadow: '0 2px 8px rgba(7, 70, 110, 0.15)',
-          width: '100%',
-          maxWidth: 600,
-          minHeight: 200,
-          display: 'flex',
-          flexDirection: 'column',
-        }}
-      >
-        <Typography
-          variant="h6"
-          sx={{ color: '#07466E', mb: 2, fontWeight: 600 }}
-        >
-          {reflectionPrompts[currentIndex]}
-        </Typography>
+//   // ----------------- SAVE TO LOCALSTORAGE ON CHANGE -----------------
+//   useEffect(() => {
+//     if (!sessionId) return;
+//     localStorage.setItem(`reflection_${sessionId}`, JSON.stringify(answers));
+//   }, [answers, sessionId]);
 
-        <TextField
-          multiline
-          minRows={4}
-          maxRows={8}
-          placeholder="Type your answer here..."
-          value={answers[currentIndex] || ''}
-          onChange={handleChange}
-          variant="outlined"
-          sx={{ flexGrow: 1, mb: 3 }}
-        />
+//   // ----------------- UPDATE FUNCTIONS -----------------
+//   const updateText = (qIndex: number, value: string) => {
+//     const copy = [...answers];
+//     copy[sectionIndex][qIndex].text = value;
+//     setAnswers(copy);
+//   };
 
-        <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-          <Button
-            variant="outlined"
-            disabled={currentIndex === 0}
-            onClick={goPrev}
-            sx={{ color: '#07466E', borderColor: '#07466E' }}
-          >
-            Previous
-          </Button>
+//   const updateRating = (qIndex: number, value: number | number[]) => {
+//     const copy = [...answers];
+//     copy[sectionIndex][qIndex].rating = value as number;
+//     setAnswers(copy);
+//   };
 
-          <Button
-            variant="contained"
-            onClick={goNext}
-            sx={{ backgroundColor: '#07466E' }}
-          >
-            {currentIndex === reflectionPrompts.length - 1 ? 'Finish' : 'Next'}
-          </Button>
-        </Box>
-      </motion.div>
-    </Box>
-  );
-};
+//   // ----------------- VALIDATION -----------------
+//   const isSectionValid = () => {
+//     const currentSection = sections[sectionIndex];
+//     const currentAnswers = answers[sectionIndex];
+//     if (!currentAnswers) return false;
+//     return currentSection.questions.every((q, i) => {
+//       const ans = currentAnswers[i];
+//       return ans.text.trim().length > 0;
+//     });
+//   };
 
-export default ReflectionPage;
+//   // ----------------- NAVIGATION -----------------
+//   const goNext = async () => {
+//     if (!isSectionValid()) {
+//       setPopup({ open: true, title: "Incomplete Questions", message: "Please complete all questions before continuing." });
+//       return;
+//     }
+
+//     if (sectionIndex < sections.length - 1) {
+//       setSectionIndex((p) => p + 1);
+//       return;
+//     }
+
+//     // ✅ FINAL SUBMIT
+//     try {
+//       const userData = JSON.parse(localStorage.getItem("userData") || "{}");
+//       const structuredAnswers = answers.flatMap((sectionAnswers, sectionIndex) =>
+//         sectionAnswers.map((ans, questionIndex) => ({
+//           sectionIndex,
+//           questionIndex,
+//           text: ans.text,
+//           rating: ans.rating,
+//         }))
+//       );
+
+//       await fetch("http://localhost:3001/api/session/reflection", {
+//         method: "POST",
+//         headers: { "Content-Type": "application/json" },
+//         body: JSON.stringify({ userData, reflectionAnswers: structuredAnswers }),
+//       });
+
+//       // ✅ REMOVE LOCALSTORAGE
+//        localStorage.removeItem(`answers_${userData.sessionId}`);
+//       localStorage.removeItem(`feedback_${userData.sessionId}`);
+//       localStorage.removeItem(`currentIndex_${userData.sessionId}`);
+//       localStorage.removeItem(`attempts_${userData.sessionId}`);
+//       localStorage.removeItem(`reflection_${userData.sessionId}`);
+//       localStorage.removeItem("userData");
+//       navigate("/", { replace: true });
+
+//     } catch (err) {
+//       console.error("❌ Submission failed", err);
+//     }
+//   };
+
+//   const goPrev = () => {
+//     if (sectionIndex > 0) setSectionIndex((p) => p - 1);
+//   };
+
+//   const currentSection = sections[sectionIndex];
+//   const currentAnswers = answers[sectionIndex] || [];
+
+//   // ----------------- RENDER -----------------
+//   return (
+//     <Box sx={{ minHeight: '100vh', p: 4, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+//       <TopBar />
+//       <Box sx={{ width: '100%', maxWidth: 1000, padding: 10, borderRadius: 12, background: '#f5faff' }}>
+//         <Typography variant="h4" sx={{ mb: 5, color: "#555" }}>{currentSection.title}</Typography>
+
+//         {currentSection.questions.map((q, i) => {
+//           const ans = currentAnswers[i] || { text: "", rating: null };
+//           return (
+//             <Box key={i} sx={{ mb: 4, mt: 4 }}>
+//               <Typography sx={{ mb: 1 }}>{q.text}</Typography>
+
+//               {q.hasRating && (
+//                 <Box sx={{ mb: 2 }}>
+//                   <Typography>Rating: {ans.rating !== null ? ans.rating : "Not selected"}</Typography>
+//                   <Slider value={ans.rating ?? 3} min={1} max={5} step={1} onChange={(_, v) => updateRating(i, v)} marks valueLabelDisplay="auto" />
+//                 </Box>
+//               )}
+
+//               <TextField multiline fullWidth minRows={3} value={ans.text} onChange={(e) => updateText(i, e.target.value)} />
+//             </Box>
+//           );
+//         })}
+
+//         <Box display="flex" justifyContent="space-between">
+//           <Button onClick={goPrev} disabled={sectionIndex === 0}>Previous</Button>
+//           <Button variant="contained" sx={{backgroundColor: sectionIndex === sections.length - 1  ? '#e53935' : '#063655'}} onClick={goNext}>{sectionIndex === sections.length - 1 ? "Finish" : "Next"}</Button>
+//         </Box>
+
+//       </Box>
+
+//       {/* ----------------- POPUP ----------------- */}
+//       <Dialog open={popup.open} onClose={() => setPopup((p) => ({ ...p, open: false }))} PaperProps={{
+//         sx: { position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: '80%', maxWidth: 600, maxHeight: '80vh', overflowY: 'auto', bgcolor: '#fcfcfc', borderRadius: '10px', boxShadow: 24, p: 4, border: '1px solid #ddd', fontFamily: 'Segoe UI, sans-serif' }
+//       }}>
+//         <DialogTitle sx={{ fontWeight: 'bold' }}>{popup.title}</DialogTitle>
+//         <DialogContent><Typography>{popup.message}</Typography></DialogContent>
+//         <DialogActions>
+//           <Button onClick={() => setPopup((p) => ({ ...p, open: false }))}>Cancel</Button>
+//           {popup.onConfirm && <Button variant="contained" onClick={() => { popup.onConfirm?.(); setPopup((p) => ({ ...p, open: false })); }}>{popup.confirmText || "OK"}</Button>}
+//         </DialogActions>
+//       </Dialog>
+
+//     </Box>
+//   );
+// };
+
+// export default ReflectionPage;
