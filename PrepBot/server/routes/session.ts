@@ -110,9 +110,9 @@ router.post("/answer", async (req, res) => {
     console.log("✅ Saved answer + audio:", `${userData.sessionId}/${fileName}`);
     res.json({ success: true });
 
-  } catch (err) {
-    console.error("❌ Answer save failed", err);
-    res.status(500).json({ error: "Failed to save your answer. Please try again." });
+  } catch (err: any) {
+    console.error("❌ FULL ERROR:", err);
+    res.status(500).json({ error: err.message });
      return;
   }
 });

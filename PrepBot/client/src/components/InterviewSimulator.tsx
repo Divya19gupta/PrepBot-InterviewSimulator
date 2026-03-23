@@ -253,7 +253,7 @@ const InterviewSimulator: React.FC = () => {
         recordingAttempts: attempts[currentIndex],
       }).catch((err) => {
         console.error("❌ Save failed:", err);
-        toast.error("Failed to save answer");
+        toast.error(err.message || "Failed to save your answer. Please check your connection.");
       });
 
       // 4️⃣ Update UI
