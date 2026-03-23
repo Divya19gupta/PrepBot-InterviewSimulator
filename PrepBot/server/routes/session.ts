@@ -171,4 +171,34 @@ router.post("/complete", async (req, res) => {
   }
 });
 
+// 🔥 DELETE SESSION (START FRESH)
+router.post("/delete", async (req, res) => {
+  try {
+    const { sessionId } = req.body;
+
+    if (!sessionId) {
+      res.status(400).json({ error: "Missing sessionId" });
+      return;
+    }
+
+    // delete answers first (FK constraint)
+    await prisma.answer.deleteMany({
+      where: { sessionId },
+    });
+
+    // delete session
+    await prisma.session.delete({
+      where: { id: sessionId },
+    });
+
+    res.json({ success: true });
+    return;
+
+  } catch (err) {
+    console.error("❌ Delete session failed", err);
+     res.status(500).json({ error: "Failed to delete session" });
+     return
+  }
+});
+
 export default router;

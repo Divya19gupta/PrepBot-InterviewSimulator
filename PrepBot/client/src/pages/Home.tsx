@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from "react";
-import { Box, Container, Typography, Button, TextField, MenuItem, Dialog, DialogTitle, DialogContent, DialogActions } from "@mui/material";
+import { Box, Container, Typography, Button, TextField, MenuItem, Dialog, DialogTitle, DialogContent, DialogActions, CircularProgress, Backdrop } from "@mui/material";
 import { useNavigate } from "react-router-dom";
 import { AvatarHome } from "./AvatarHome";
 import toast from "react-hot-toast";
+import theme from "../theme";
+
 const API_URL = import.meta.env.VITE_API_URL || "https://prepbot-server.onrender.com";
 
 const Home = () => {
@@ -11,7 +13,9 @@ const Home = () => {
   const [email, setEmail] = useState("");
   const [language, setLanguage] = useState("non-native");
   const [existingSession, setExistingSession] = useState<any>(null);
-  // const [logoutDialogOpen, setLogoutDialogOpen] = useState(false);
+
+  const [isStarting, setIsStarting] = useState(false); // ✅ loader
+  const [confirmFreshOpen, setConfirmFreshOpen] = useState(false); // ✅ confirm dialog
 
   // Load session from localStorage
   useEffect(() => {
@@ -33,49 +37,69 @@ const Home = () => {
 
   const generateUserId = () => "user_" + Math.random().toString(36).substring(2, 9);
 
+  // 🚀 START INTERVIEW
   const handleStart = async () => {
     if (!name.trim() || !email.trim()) return;
 
+    setIsStarting(true);
+
     let userData;
 
-    if (existingSession) {
-      userData = existingSession;
-    } else {
-      const newUserId = generateUserId();
-      userData = {
-        userId: newUserId,
-        name,
-        email,
-        language,
-        sessionId: Date.now().toString(),
-      };
+    try {
+      if (existingSession) {
+        userData = existingSession;
+      } else {
+        const newUserId = generateUserId();
+        userData = {
+          userId: newUserId,
+          name,
+          email,
+          language,
+          sessionId: Date.now().toString(),
+        };
 
-      localStorage.setItem("userData", JSON.stringify(userData));
+        localStorage.setItem("userData", JSON.stringify(userData));
 
-      await fetch(`${API_URL}/api/session/start`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userData }),
-      }).catch((err) => {
-        console.error("❌ Session start error:", err);
-        toast.error(err.message);
-      }); 
+        await fetch(`${API_URL}/api/session/start`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ userData }),
+        });
+      }
+
+      navigate("/interview");
+
+    } catch (err: any) {
+      console.error("❌ Session start error:", err);
+      toast.error(err.message);
+    } finally {
+      setIsStarting(false);
     }
-
-    navigate("/interview");
   };
 
-  // const handleLogout = () => setLogoutDialogOpen(true);
+  // 🔥 START FRESH
+  const handleStartFresh = async () => {
+    try {
+      if (existingSession?.sessionId) {
+        await fetch(`${API_URL}/api/session/delete`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ sessionId: existingSession.sessionId }),
+        });
+      }
+    } catch (err) {
+      console.error("❌ Delete failed", err);
+    }
 
-  // const confirmLogout = () => {
-  //   localStorage.clear();
-  //   // setLogoutDialogOpen(false);
-  //   setExistingSession(null);
-  //   setName("");
-  //   setEmail("");
-  //   setLanguage("non-native");
-  //   navigate("/", { replace: true });
-  // };
+    localStorage.clear();
+
+    setExistingSession(null);
+    setName("");
+    setEmail("");
+    setLanguage("non-native");
+
+    setConfirmFreshOpen(false);
+  };
 
   return (
     <Container
@@ -120,7 +144,7 @@ const Home = () => {
 
         <Button
           variant="contained"
-          disabled={!existingSession && (!name.trim() || !email.trim())}
+          disabled={isStarting || (!existingSession && (!name.trim() || !email.trim()))}
           sx={{
             backgroundColor: "#07466E",
             borderRadius: "18px",
@@ -131,10 +155,15 @@ const Home = () => {
           }}
           onClick={handleStart}
         >
-          {existingSession ? "Resume Interview" : "Start Interview"}
+          {isStarting
+            ? "Starting..."
+            : existingSession
+            ? "Resume Interview"
+            : "Start Interview"}
         </Button>
 
-        {/* {existingSession && (
+        {/* 🔥 START FRESH BUTTON (same styling as logout) */}
+        {existingSession && (
           <Button
             variant="outlined"
             sx={{
@@ -146,25 +175,48 @@ const Home = () => {
               color: "white",
               "&:hover": { backgroundColor: "white", color: "red" },
             }}
-            onClick={handleLogout}
+            onClick={() => setConfirmFreshOpen(true)}
           >
-            Logout
+            Start Fresh
           </Button>
-        )} */}
+        )}
       </Box>
 
-      {/* <Dialog open={logoutDialogOpen} 
+      {/* 🔥 LOADER (no styling change) */}
+      {/* <Dialog open={isStarting}
       PaperProps={{ sx: { position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: '80%', maxWidth: 600, maxHeight: '80vh', overflowY: 'auto', bgcolor: '#fcfcfc', borderRadius: '10px', boxShadow: 24, p: 4, border: '1px solid #ddd', fontFamily: 'Segoe UI, sans-serif' } }}
-      onClose={() => setLogoutDialogOpen(false)}>
-        <DialogTitle>Confirm Logout</DialogTitle>
+            
+      >
         <DialogContent>
-          <Typography>Logging out will erase your current progress. Are you sure?</Typography>
+          <CircularProgress />
+          <Typography sx={{ mt: 2 }}>
+            Starting your interview...
+          </Typography>
+        </DialogContent>
+      </Dialog> */}
+        {isStarting && (
+          <Backdrop sx={{ color: "#fff", zIndex: theme.zIndex.drawer + 2 }} open>
+                    <CircularProgress color="inherit" />
+                    <Typography sx={{ mt: 2 }}>Starting your interview...</Typography>
+                  </Backdrop>
+        )}
+      {/* 🔥 CONFIRM RESET */}
+      <Dialog 
+      PaperProps={{ sx: { position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: '80%', maxWidth: 600, maxHeight: '80vh', overflowY: 'auto', bgcolor: '#fcfcfc', borderRadius: '10px', boxShadow: 24, p: 4, border: '1px solid #ddd', fontFamily: 'Segoe UI, sans-serif' } }}
+      open={confirmFreshOpen} onClose={() => setConfirmFreshOpen(false)}>
+        <DialogTitle>Start Fresh</DialogTitle>
+        <DialogContent>
+          <Typography>
+            This will delete all your progress. Are you sure?
+          </Typography>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setLogoutDialogOpen(false)}>Cancel</Button>
-          <Button variant="contained" color="error" onClick={confirmLogout}>Logout</Button>
+          <Button onClick={() => setConfirmFreshOpen(false)}>Cancel</Button>
+          <Button variant="contained" color="error" onClick={handleStartFresh}>
+            Yes, Reset
+          </Button>
         </DialogActions>
-      </Dialog> */}
+      </Dialog>
     </Container>
   );
 };
