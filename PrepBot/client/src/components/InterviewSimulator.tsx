@@ -27,7 +27,7 @@ import ArrowForwardIcon from "@mui/icons-material/ArrowForward";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import FeedbackIcon from "@mui/icons-material/Feedback";
 import toast from "react-hot-toast";
-const API_URL = import.meta.env.VITE_API_URL;
+const API_URL = import.meta.env.VITE_API_URL || "https://prepbot-server.onrender.com";
 
 const TOTAL_QUESTIONS = 5;
 
