@@ -206,3 +206,37 @@
 // };
 
 // export default ReflectionPage;
+
+// REFLECTION.TS:
+
+// ✅ SAVE REFLECTION (UPDATED FOR STRUCTURED DATA)
+// router.post("/reflection", async (req, res) => {
+//   try {
+//     const { userData, reflectionAnswers } = req.body;
+
+//     // ✅ FIX: STOP EXECUTION
+//     if (!userData || !Array.isArray(reflectionAnswers)) {
+//        res.status(400).json({ error: "Invalid data" });
+//         return;
+//     }
+
+//         await prisma.reflection.createMany({
+//         data: reflectionAnswers.map((a: any) => ({
+//             sessionId: userData.sessionId,
+//             sectionIndex: a.sectionIndex,
+//             questionIndex: a.questionIndex,
+//             text: a.text || "",
+//             rating: a.rating ?? null,
+//         })),
+//         });
+
+//     console.log("✅ Reflection saved");
+
+//     res.json({ success: true });
+
+//   } catch (err) {
+//     console.error("❌ Reflection save failed", err);
+//     res.status(500).json({ error: "Failed to save reflection" });
+//      return;
+//   }
+// });

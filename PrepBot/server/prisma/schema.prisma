@@ -13,6 +13,7 @@ model Session {
   name      String
   email     String
   language  String
+  status    String   @default("in_progress")
   answers   Answer[]
   createdAt DateTime @default(now())
 }
@@ -29,5 +30,5 @@ model Answer {
 
   session Session @relation(fields: [sessionId], references: [id])
 
-  @@unique([sessionId, question])  // <-- add this line
+  @@unique([sessionId, question])
 }

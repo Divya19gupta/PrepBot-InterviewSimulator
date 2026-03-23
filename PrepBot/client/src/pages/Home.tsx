@@ -11,7 +11,7 @@ const Home = () => {
   const [email, setEmail] = useState("");
   const [language, setLanguage] = useState("non-native");
   const [existingSession, setExistingSession] = useState<any>(null);
-  const [logoutDialogOpen, setLogoutDialogOpen] = useState(false);
+  // const [logoutDialogOpen, setLogoutDialogOpen] = useState(false);
 
   // Load session from localStorage
   useEffect(() => {
@@ -65,17 +65,17 @@ const Home = () => {
     navigate("/interview");
   };
 
-  const handleLogout = () => setLogoutDialogOpen(true);
+  // const handleLogout = () => setLogoutDialogOpen(true);
 
-  const confirmLogout = () => {
-    localStorage.clear();
-    setLogoutDialogOpen(false);
-    setExistingSession(null);
-    setName("");
-    setEmail("");
-    setLanguage("non-native");
-    navigate("/", { replace: true });
-  };
+  // const confirmLogout = () => {
+  //   localStorage.clear();
+  //   // setLogoutDialogOpen(false);
+  //   setExistingSession(null);
+  //   setName("");
+  //   setEmail("");
+  //   setLanguage("non-native");
+  //   navigate("/", { replace: true });
+  // };
 
   return (
     <Container
@@ -134,7 +134,7 @@ const Home = () => {
           {existingSession ? "Resume Interview" : "Start Interview"}
         </Button>
 
-        {existingSession && (
+        {/* {existingSession && (
           <Button
             variant="outlined"
             sx={{
@@ -150,10 +150,10 @@ const Home = () => {
           >
             Logout
           </Button>
-        )}
+        )} */}
       </Box>
 
-      <Dialog open={logoutDialogOpen} 
+      {/* <Dialog open={logoutDialogOpen} 
       PaperProps={{ sx: { position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: '80%', maxWidth: 600, maxHeight: '80vh', overflowY: 'auto', bgcolor: '#fcfcfc', borderRadius: '10px', boxShadow: 24, p: 4, border: '1px solid #ddd', fontFamily: 'Segoe UI, sans-serif' } }}
       onClose={() => setLogoutDialogOpen(false)}>
         <DialogTitle>Confirm Logout</DialogTitle>
@@ -164,7 +164,7 @@ const Home = () => {
           <Button onClick={() => setLogoutDialogOpen(false)}>Cancel</Button>
           <Button variant="contained" color="error" onClick={confirmLogout}>Logout</Button>
         </DialogActions>
-      </Dialog>
+      </Dialog> */}
     </Container>
   );
 };

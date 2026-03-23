@@ -1,36 +1,14 @@
 import express from "express";
-// import fs from "fs";
-// import path from "path";
 import { prisma } from "../db";
 import { supabase } from "../supabaseClient";
-// import prisma from "../prismaClient"; // adjust path if needed
 
 const router = express.Router();
 
-// const DATA_PATH = path.join(__dirname, "..", "data.json");
-
-// helper to read/write safely
-// const readData = () => {
-//   try {
-//     if (!fs.existsSync(DATA_PATH)) return [];
-//     const raw = fs.readFileSync(DATA_PATH, "utf-8");
-//     return raw ? JSON.parse(raw) : [];
-//   } catch (err) {
-//     console.error("❌ Failed to read DB", err);
-//     return [];
-//   }
-// };
-
-// const writeData = (data: any) => {
-//   try {
-//     fs.writeFileSync(DATA_PATH, JSON.stringify(data, null, 2));
-//   } catch (err) {
-//     console.error("❌ Failed to write DB", err);
-//   }
-// };
-
 // ✅ SAVE INTERVIEW ANSWER
 router.post("/answer", async (req, res) => {
+  let filePath: string | null = null;
+  let uploaded = false;
+
   try {
     const {
       userData,
@@ -38,172 +16,158 @@ router.post("/answer", async (req, res) => {
       question,
       transcript,
       feedback,
-      recordingAttempts
+      recordingAttempts,
     } = req.body;
 
-    // ✅ FIX: STOP EXECUTION
-    if (!userData || !audioBase64 || !question) {
+    if (
+      !userData?.sessionId ||
+      !userData?.userId ||
+      !audioBase64 ||
+      !question ||
+      !transcript
+    ) {
        res.status(400).json({ error: "Missing required data" });
-        return;
+       return;
     }
 
-    // const dir = path.join(__dirname, "../data/audio");
-    // if (!fs.existsSync(dir)) {
-    //   fs.mkdirSync(dir, { recursive: true });
-    // }
+    const base64Parts = audioBase64.split(",");
+    if (base64Parts.length < 2) {
+       res.status(400).json({ error: "Invalid audio format" });
+       return;
+    }
+
+    const buffer = Buffer.from(base64Parts[1], "base64");
 
     const fileName = `${userData.userId}_${Date.now()}.webm`;
-    // const filePath = path.join(dir, fileName);
+    filePath = `${userData.sessionId}/${fileName}`;
 
-    const base64Data = audioBase64.split(",")[1];
-    // convert base64 to buffer
-    const buffer = Buffer.from(base64Data, "base64");
+    const { error: uploadError } = await supabase.storage
+      .from("interview-audios")
+      .upload(filePath, buffer, {
+        contentType: "audio/webm",
+        upsert: false,
+      });
 
-    // upload to Supabase Storage
-    const { data: fileData, error: uploadError } = await supabase
-    .storage
-    .from("interview-audios")
-    .upload(`${userData.sessionId}/${fileName}`, buffer, {
-        contentType: "audio/webm"
+    if (uploadError) {
+      throw new Error(uploadError.message);
+    }
+
+    uploaded = true;
+
+    await prisma.answer.upsert({
+      where: {
+        sessionId_question: {
+          sessionId: userData.sessionId,
+          question,
+        },
+      },
+      update: {
+        transcript,
+        feedback: feedback || "No feedback",
+        attempts: recordingAttempts ?? 1,
+        audioFile: filePath, // ✅ critical
+      },
+      create: {
+        sessionId: userData.sessionId,
+        question,
+        transcript,
+        feedback: feedback || "No feedback",
+        audioFile: filePath,
+        attempts: recordingAttempts ?? 1,
+      },
     });
 
-    if (uploadError) throw uploadError;
-
-    // fs.writeFileSync(filePath, buffer);
-
-    // const db = readData();
-    // db.push({
-    //     type: "answer",
-    //     timestamp: Date.now(),
-    //     userData,
-    //     question,
-    //     transcript,
-    //     feedback: feedback || "No feedback",
-    //     recordingAttempts: recordingAttempts ?? 1,
-    //     audioFile: fileName,
-    //     });
-
-    // writeData(db);
-
-    // console.log("✅ Saved answer + audio:", fileName);
-      await prisma.answer.upsert({
-        where: {
-            sessionId_question: {
-            sessionId: userData.sessionId,
-            question,
-            },
-        },
-        update: {
-            transcript,
-            feedback: feedback || "No feedback",  // <-- FIX
-            attempts: recordingAttempts ?? 1,
-        },
-        create: {
-            sessionId: userData.sessionId,
-            question,
-            transcript,
-            feedback: feedback || "No feedback",  // <-- FIX
-            audioFile:`${userData.sessionId}/${fileName}`, // path in storage,
-            attempts: recordingAttempts ?? 1,
-        },
-        });
-    console.log("✅ Saved answer + audio:", `${userData.sessionId}/${fileName}`);
-    res.json({ success: true });
+     res.json({ success: true });
+     return;
 
   } catch (err: any) {
-    console.error("❌ FULL ERROR:", err);
-    res.status(500).json({ error: err.message });
+    console.error("❌ ERROR:", err);
+
+    if (uploaded && filePath) {
+      await supabase.storage.from("interview-audios").remove([filePath]);
+    }
+
+     res.status(500).json({ error: err.message });
      return;
   }
 });
 
-// ✅ SAVE REFLECTION (UPDATED FOR STRUCTURED DATA)
-// router.post("/reflection", async (req, res) => {
-//   try {
-//     const { userData, reflectionAnswers } = req.body;
-
-//     // ✅ FIX: STOP EXECUTION
-//     if (!userData || !Array.isArray(reflectionAnswers)) {
-//        res.status(400).json({ error: "Invalid data" });
-//         return;
-//     }
-
-//         await prisma.reflection.createMany({
-//         data: reflectionAnswers.map((a: any) => ({
-//             sessionId: userData.sessionId,
-//             sectionIndex: a.sectionIndex,
-//             questionIndex: a.questionIndex,
-//             text: a.text || "",
-//             rating: a.rating ?? null,
-//         })),
-//         });
-
-//     console.log("✅ Reflection saved");
-
-//     res.json({ success: true });
-
-//   } catch (err) {
-//     console.error("❌ Reflection save failed", err);
-//     res.status(500).json({ error: "Failed to save reflection" });
-//      return;
-//   }
-// });
-
-//SESSION START
+// START SESSION
 router.post("/start", async (req, res) => {
   try {
     const { userData } = req.body;
 
     if (!userData?.sessionId || !userData?.userId) {
-    res.status(400).json({ error: "Invalid session data" });
-     return;
+       res.status(400).json({ error: "Invalid session data" });
+       return;
     }
 
     await prisma.session.create({
-  data: {
-    id: userData.sessionId,   // ✅ FIXED
-    userId: userData.userId,
-    name: userData.name,
-    email: userData.email,
-    language: userData.language || "en", // optional safety
-  },
-});
+      data: {
+        id: userData.sessionId,
+        userId: userData.userId,
+        name: userData.name,
+        email: userData.email,
+        language: userData.language || "en",
+        status: "in_progress", // ✅ added
+      },
+    });
 
-    console.log("✅ Session created:", userData.sessionId);
-
-    res.json({ success: true });
+     res.json({ success: true });
+     return;
 
   } catch (err) {
     console.error("❌ Session start failed", err);
-    res.status(500).json({ error: "Failed to start session" });
-    return;
+     res.status(500).json({ error: "Failed to start session" });
+     return;
   }
 });
-// ✅ RESUME SESSION
+
+// RESUME
 router.get("/resume/:sessionId", async (req, res) => {
   try {
     const { sessionId } = req.params;
 
     const session = await prisma.session.findUnique({
-  where: { id: sessionId },
-  include: {
-    answers: true,
-  },
-});
+      where: { id: sessionId },
+      include: { answers: true },
+    });
 
     if (!session) {
        res.status(404).json({ error: "Session not found" });
        return;
     }
 
-    res.json({
-      session,
-      answers: session.answers,
-    });
+     res.json({ session, answers: session.answers });
+     return;
 
   } catch (err) {
-    console.error("❌ Resume fetch failed", err);
-    res.status(500).json({ error: "Failed to fetch session" });
+     res.status(500).json({ error: "Failed to fetch session" });
+     return;
+  }
+});
+
+// COMPLETE SESSION
+router.post("/complete", async (req, res) => {
+  try {
+    const { sessionId } = req.body;
+
+    if (!sessionId) {
+       res.status(400).json({ error: "Missing sessionId" });
+       return;
+    }
+
+    await prisma.session.update({
+      where: { id: sessionId },
+      data: { status: "completed" },
+    });
+
+     res.json({ success: true });
+     return;
+
+  } catch (err) {
+     res.status(500).json({ error: "Failed to complete session" });
+     return;
   }
 });
 

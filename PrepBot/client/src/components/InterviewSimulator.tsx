@@ -27,8 +27,8 @@ import ArrowForwardIcon from "@mui/icons-material/ArrowForward";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import FeedbackIcon from "@mui/icons-material/Feedback";
 import toast from "react-hot-toast";
-const API_URL = import.meta.env.VITE_API_URL || "https://prepbot-server.onrender.com";
 
+const API_URL = import.meta.env.VITE_API_URL || "https://prepbot-server.onrender.com";
 const TOTAL_QUESTIONS = 5;
 
 const InterviewSimulator: React.FC = () => {
@@ -92,13 +92,24 @@ const InterviewSimulator: React.FC = () => {
   const [popup, setPopup] = useState<{ open: boolean; title: string; message: string; onConfirm?: () => void; confirmText?: string }>({ open: false, title: "", message: "" });
   const [showEndConfirm, setShowEndConfirm] = useState(false);
 
-
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const streamRef = useRef<MediaStream | null>(null);
   const hasFetchedRef = useRef(false);
+  const isMountedRef = useRef(true); // ✅ FIX
 
   const isDisabled = recording;
+
+    // ----------------- CLEANUP -----------------
+
+  useEffect(() => {
+    return () => {
+      isMountedRef.current = false; // ✅ FIX
+      mediaRecorderRef.current?.stop();
+      streamRef.current?.getTracks().forEach((t) => t.stop());
+    };
+  }, []);
+
 
   // ----------------- LOAD SESSION -----------------
   useEffect(() => {
@@ -151,13 +162,8 @@ const InterviewSimulator: React.FC = () => {
   }, [answers, feedback, currentIndex, attempts, userData?.sessionId]);
 
 
-  // ----------------- CLEANUP -----------------
-  useEffect(() => {
-    return () => {
-      mediaRecorderRef.current?.stop();
-      streamRef.current?.getTracks().forEach((t) => t.stop());
-    };
-  }, []);
+
+  
 
   // ----------------- RECORDING -----------------
   const startRecording = async () => {
@@ -196,95 +202,127 @@ const InterviewSimulator: React.FC = () => {
   };
 
   // ----------------- HANDLE RECORDING STOP -----------------
-  const handleRecordingStop = async () => {
-  if (audioChunksRef.current.length === 0) return;
+   const handleRecordingStop = async () => {
+    if (audioChunksRef.current.length === 0) return;
 
-  const audioBlob = new Blob(audioChunksRef.current, { type: "audio/webm" });
-  const reader = new FileReader();
+    const audioBlob = new Blob(audioChunksRef.current, { type: "audio/webm" });
+    const reader = new FileReader();
 
-  // 🔥 Generic API helper (clean + reusable)
-  const fetchJSON = async (url: string, body: any) => {
-    const res = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
-
-    const data = await res.json();
-
-    if (!res.ok) {
-      throw new Error(data.error || "Something went wrong");
+    // ✅ FIX: snapshot
+    const index = currentIndex;
+    
+    const question = questions[index];
+    if (!question) {
+      toast.error("Question not loaded properly");
+      return;
     }
 
-    return data;
-  };
+    const attempt = attempts[index];
 
-  reader.onloadend = async () => {
-    const base64Audio = reader.result as string;
-    if (!base64Audio) return;
+    const fetchJSON = async (url: string, body: any, timeout = 20000) => {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), timeout);
 
-    setIsLoading(true);
+      try {
+        const res = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+          signal: controller.signal,
+        });
 
-    try {
-      // 1️⃣ Transcribe
-      const { transcript } = await fetchJSON(
-         (`${API_URL}/api/transcribe`),
-        { audioBase64: base64Audio }
-      );
-
-      setTranscript(transcript);
-
-      // 2️⃣ Evaluate
-      const evaluation = await fetchJSON(
-        (`${API_URL}/api/evaluate`),
-        {
-          question: questions[currentIndex],
-          answer: transcript,
+        let data;
+        try {
+          data = await res.json();
+        } catch {
+          throw new Error("Invalid server response");
         }
-      );
 
-      // 3️⃣ Save (don’t block flow if it fails)
-      fetchJSON(`${API_URL}/api/session/answer`, {
-        userData,
-        question: questions[currentIndex],
-        transcript,
-        feedback: evaluation?.feedback,
-        audioBase64: base64Audio,
-        recordingAttempts: attempts[currentIndex],
-      }).catch((err) => {
-        console.error("❌ Save failed:", err);
-        toast.error(err.message || "Failed to save your answer. Please check your connection.");
-      });
+        if (!res.ok) {
+          throw new Error(data.error || "Something went wrong");
+        }
 
-      // 4️⃣ Update UI
-      setAnswers((prev) => {
-        const updated = [...prev];
-        updated[currentIndex] = transcript;
-        return updated;
-      });
+        return data;
+      } catch (err: any) {
+        if (err.name === "AbortError") {
+          throw new Error("Request timed out");
+        }
+        throw err;
+      } finally {
+        clearTimeout(timer);
+      }
+    };
 
-      setFeedback((prev) => {
-        const updated = [...prev];
-        updated[currentIndex] = {
-          question: questions[currentIndex],
-          answer: transcript,
-          feedback: evaluation?.feedback || "No feedback",
-        };
-        return updated;
-      });
+    reader.onloadend = async () => {
+      if (!isMountedRef.current) return; // ✅ FIX
 
-    } catch (err: any) {
-      console.error("❌ Error:", err);
-      toast.error(err.message || "Something went wrong");
-      setTranscript("⚠️ Error processing audio");
-    } finally {
-      setIsLoading(false);
-    }
+      const base64Audio = reader.result as string;
+
+      if (!base64Audio) {
+        toast.error("Audio processing failed");
+        setIsLoading(false); // ✅ FIX
+        return;
+      }
+
+      setIsLoading(true);
+
+      try {
+        const { transcript } = await fetchJSON(
+          `${API_URL}/api/transcribe`,
+          { audioBase64: base64Audio },
+          45000
+        );
+
+        setTranscript(transcript);
+
+        const evaluation = await fetchJSON(
+          `${API_URL}/api/evaluate`,
+          { question, answer: transcript },
+          15000
+        );
+
+        await fetchJSON(
+          `${API_URL}/api/session/answer`,
+          {
+            userData,
+            question,
+            transcript,
+            feedback: evaluation?.feedback,
+            audioBase64: base64Audio,
+            recordingAttempts: attempt,
+          },
+          15000
+        );
+
+        setAnswers((prev) => {
+          const updated = [...prev];
+          updated[index] = transcript;
+          return updated;
+        });
+
+        setFeedback((prev) => {
+          const updated = [...prev];
+          updated[index] = {
+            question,
+            answer: transcript,
+            feedback: evaluation?.feedback || "No feedback",
+          };
+          return updated;
+        });
+
+      } catch (err: any) {
+        console.error("❌ Error:", err);
+        toast.error(err.message || "Something went wrong");
+        setTranscript("⚠️ Error processing audio");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    reader.readAsDataURL(audioBlob);
   };
 
-  reader.readAsDataURL(audioBlob);
-};
-
+  
   // ----------------- NAVIGATION -----------------
   const handleNext = () => {
     if (recording) return;
@@ -310,15 +348,27 @@ const InterviewSimulator: React.FC = () => {
   setShowEndConfirm(true); // Open confirmation dialog instead of immediately clearing
   };
 
-const confirmEndInterview = () => {
-  setShowEndConfirm(true);
-    localStorage.removeItem(`answers_${userData.sessionId}`);
-    localStorage.removeItem(`feedback_${userData.sessionId}`);
-    localStorage.removeItem(`currentIndex_${userData.sessionId}`);
-    localStorage.removeItem(`attempts_${userData.sessionId}`);
-    localStorage.removeItem("userData");
-    navigate("/");
-  };
+const confirmEndInterview = async () => {
+  try {
+    await fetch(`${API_URL}/api/session/complete`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ sessionId: userData.sessionId }),
+    });
+  } catch (err) {
+    console.error("❌ Failed to mark complete", err);
+  }
+
+  setShowEndConfirm(false);
+
+  localStorage.removeItem(`answers_${userData.sessionId}`);
+  localStorage.removeItem(`feedback_${userData.sessionId}`);
+  localStorage.removeItem(`currentIndex_${userData.sessionId}`);
+  localStorage.removeItem(`attempts_${userData.sessionId}`);
+  localStorage.removeItem("userData");
+
+  navigate("/");
+};
 
   // ----------------- RENDER -----------------
   return (
