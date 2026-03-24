@@ -181,6 +181,16 @@ router.post("/delete", async (req, res) => {
       return;
     }
 
+    const answers = await prisma.answer.findMany({
+      where: { sessionId },
+    });
+
+    const filePaths = answers.map(a => a.audioFile);
+
+    if (filePaths.length > 0) {
+      await supabase.storage.from("interview-audios").remove(filePaths);
+    }
+
     // delete answers first (FK constraint)
     await prisma.answer.deleteMany({
       where: { sessionId },

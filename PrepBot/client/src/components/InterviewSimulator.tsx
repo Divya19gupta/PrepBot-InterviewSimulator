@@ -245,7 +245,7 @@ const InterviewSimulator: React.FC = () => {
         return data;
       } catch (err: any) {
         if (err.name === "AbortError") {
-          throw new Error("Request timed out");
+          throw new Error("Request timed out. Please try again.");
         }
         throw err;
       } finally {

@@ -31,6 +31,13 @@ router.post("/", async (req, res) => {
       audio_url: uploadResponse,
       speech_models: ["universal"],
     });
+    if (transcript.language_code && transcript.language_code !== "en") {
+    res.json({
+      transcript: "",
+      error: "NON_ENGLISH",
+    });
+    return;
+  }
 
     console.log("AssemblyAI transcript:", transcript.text);
 
