@@ -1,6 +1,7 @@
 import express from "express";
 import { prisma } from "../db";
 import { supabase } from "../supabaseClient";
+import { prototype } from "events";
 
 const router = express.Router();
 
@@ -38,8 +39,13 @@ router.post("/answer", async (req, res) => {
 
     const buffer = Buffer.from(base64Parts[1], "base64");
 
-    const fileName = `${userData.userId}_${Date.now()}.webm`;
-    filePath = `${userData.sessionId}/${fileName}`;
+    const safeQuestion = question
+  .replace(/[^a-zA-Z0-9]/g, "_")
+  .slice(0, 30);
+
+const fileName = `${userData.prototype}_Q${safeQuestion}_attempt${recordingAttempts}_${Date.now()}.webm`;
+
+filePath = `${userData.sessionId}/${userData.prototype}/${fileName}`;
 
     const { error: uploadError } = await supabase.storage
       .from("interview-audios")
@@ -56,9 +62,10 @@ router.post("/answer", async (req, res) => {
 
     await prisma.answer.upsert({
       where: {
-        sessionId_question: {
+        sessionId_question_prototype: {
           sessionId: userData.sessionId,
           question,
+          prototype: userData.prototype,
         },
       },
       update: {
@@ -66,6 +73,7 @@ router.post("/answer", async (req, res) => {
         feedback: feedback || "No feedback",
         attempts: recordingAttempts ?? 1,
         audioFile: filePath, // ✅ critical
+        prototype: userData.prototype,
       },
       create: {
         sessionId: userData.sessionId,
@@ -74,6 +82,7 @@ router.post("/answer", async (req, res) => {
         feedback: feedback || "No feedback",
         audioFile: filePath,
         attempts: recordingAttempts ?? 1,
+        prototype: userData.prototype,
       },
     });
 
@@ -97,10 +106,7 @@ router.post("/start", async (req, res) => {
   try {
     const { userData } = req.body;
 
-    if (!userData?.sessionId || !userData?.userId) {
-       res.status(400).json({ error: "Invalid session data" });
-       return;
-    }
+    const currentPrototype = "A"; // ✅ fixed order for now
 
     await prisma.session.create({
       data: {
@@ -109,17 +115,17 @@ router.post("/start", async (req, res) => {
         name: userData.name,
         email: userData.email,
         language: userData.language || "en",
-        status: "in_progress", // ✅ added
+        status: "in_progress",
+        currentPrototype,
+        phaseCompleted: 0,
       },
     });
 
-     res.json({ success: true });
-     return;
-
+    res.json({ success: true, prototype: currentPrototype });
+    return;
   } catch (err) {
-    console.error("❌ Session start failed", err);
-     res.status(500).json({ error: "Failed to start session" });
-     return;
+    res.status(500).json({ error: "Failed to start session" });
+    return;
   }
 });
 
@@ -185,18 +191,32 @@ router.post("/delete", async (req, res) => {
       where: { sessionId },
     });
 
-    const filePaths = answers.map(a => a.audioFile);
+    // ✅ FILTER VALID PATHS
+    const filePaths = answers
+      .map((a) => a.audioFile)
+      .filter((path) => typeof path === "string" && path.length > 0);
+
+    console.log("🧹 Files to delete:", filePaths);
 
     if (filePaths.length > 0) {
-      await supabase.storage.from("interview-audios").remove(filePaths);
+      const { data, error } = await supabase.storage
+        .from("interview-audios")
+        .remove(filePaths);
+
+      if (error) {
+        console.error("❌ Supabase delete error:", error);
+      } else {
+        console.log("✅ Deleted files:", filePaths);
+      }
+    } else {
+      console.log("⚠️ No valid files found to delete");
     }
 
-    // delete answers first (FK constraint)
+    // 🔥 delete DB records
     await prisma.answer.deleteMany({
       where: { sessionId },
     });
 
-    // delete session
     await prisma.session.delete({
       where: { id: sessionId },
     });
@@ -206,9 +226,51 @@ router.post("/delete", async (req, res) => {
 
   } catch (err) {
     console.error("❌ Delete session failed", err);
-     res.status(500).json({ error: "Failed to delete session" });
-     return
+    res.status(500).json({ error: "Failed to delete session" });
+    return;
   }
 });
 
+router.post("/phase-complete", async (req, res) => {
+  try {
+    const { sessionId } = req.body;
+
+    const session = await prisma.session.findUnique({
+      where: { id: sessionId },
+    });
+
+    if (!session) {
+      res.status(404).json({ error: "Session not found" });
+      return;
+    }
+
+    const newPhase = session.phaseCompleted + 1;
+
+    let nextPrototype = session.currentPrototype;
+
+    if (newPhase === 1) {
+      nextPrototype = "B"; // switch after first phase
+    }
+
+    await prisma.session.update({
+      where: { id: sessionId },
+      data: {
+        phaseCompleted: newPhase,
+        currentPrototype: nextPrototype,
+        status: newPhase === 2 ? "completed" : "in_progress",
+      },
+    });
+
+    res.json({
+      success: true,
+      phaseCompleted: newPhase,
+      nextPrototype,
+    });
+    return;
+
+  } catch (err) {
+    res.status(500).json({ error: "Failed to update phase" });
+    return;
+  }
+});
 export default router;

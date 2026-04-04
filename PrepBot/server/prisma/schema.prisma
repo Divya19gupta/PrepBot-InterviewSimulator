@@ -14,6 +14,11 @@ model Session {
   email     String
   language  String
   status    String   @default("in_progress")
+
+  // 🔥 NEW
+  currentPrototype String // "A" | "B"
+  phaseCompleted   Int    @default(0) // 0,1,2
+
   answers   Answer[]
   createdAt DateTime @default(now())
 }
@@ -27,8 +32,9 @@ model Answer {
   audioFile   String
   attempts    Int      @default(1)
   createdAt   DateTime @default(now())
+  prototype String
 
   session Session @relation(fields: [sessionId], references: [id])
 
-  @@unique([sessionId, question])
+  @@unique([sessionId, question, prototype])
 }
