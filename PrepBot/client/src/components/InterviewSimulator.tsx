@@ -96,8 +96,10 @@ const InterviewSimulator: React.FC = () => {
   const audioChunksRef = useRef<Blob[]>([]);
   const streamRef = useRef<MediaStream | null>(null);
   const hasFetchedRef = useRef(false);
-  const isMountedRef = useRef(true); // ✅ FIX
+  const isMountedRef = useRef(true); 
 
+  const [isSwitching, setIsSwitching] = useState(false);
+  const prevPrototypeRef = useRef<string | null>(null);
   const isDisabled = recording;
 
     // ----------------- CLEANUP -----------------
@@ -109,7 +111,6 @@ const InterviewSimulator: React.FC = () => {
       streamRef.current?.getTracks().forEach((t) => t.stop());
     };
   }, []);
-
 
   // ----------------- LOAD SESSION -----------------
   useEffect(() => {
@@ -152,6 +153,33 @@ const InterviewSimulator: React.FC = () => {
     hasFetchedRef.current = true;
   }, [navigate]);
 
+
+useEffect(() => {
+  if (!userData?.sessionId) return;
+
+  // 🔥 FIRST LOAD → DO NOTHING
+  if (prevPrototypeRef.current === null) {
+    prevPrototypeRef.current = userData.prototype;
+    return;
+  }
+
+  // 🔥 ONLY RUN WHEN PROTOTYPE ACTUALLY CHANGES
+  if (prevPrototypeRef.current !== userData.prototype) {
+    setAnswers(Array(TOTAL_QUESTIONS).fill(""));
+    setFeedback(Array(TOTAL_QUESTIONS).fill(null));
+    setAttempts(Array(TOTAL_QUESTIONS).fill(0));
+    setCurrentIndex(0);
+    setTranscript("");
+
+    localStorage.removeItem(`answers_${userData.sessionId}`);
+    localStorage.removeItem(`feedback_${userData.sessionId}`);
+    localStorage.removeItem(`currentIndex_${userData.sessionId}`);
+    localStorage.removeItem(`attempts_${userData.sessionId}`);
+
+    prevPrototypeRef.current = userData.prototype;
+  }
+}, [userData?.prototype]);
+
   // ----------------- SAVE TO LOCALSTORAGE -----------------
   useEffect(() => {
     if (!userData?.sessionId) return;
@@ -167,160 +195,212 @@ const InterviewSimulator: React.FC = () => {
 
   // ----------------- RECORDING -----------------
   const startRecording = async () => {
-    try {
-      setTranscript("");
-      const newAttempts = [...attempts];
-      newAttempts[currentIndex] += 1;
-      setAttempts(newAttempts);
+  try {
+    if (isLoading) return;
 
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      streamRef.current = stream;
-
-      const recorder = new MediaRecorder(stream);
-      mediaRecorderRef.current = recorder;
-      audioChunksRef.current = [];
-
-      recorder.ondataavailable = (event) => audioChunksRef.current.push(event.data);
-      recorder.onstop = handleRecordingStop;
-
-      recorder.start();
-      setRecording(true);
-    } catch (err) {
-      console.error("🎤 Mic access error:", err);
-      setPopup({
-        open: true,
-        title: "Microphone Error",
-        message: "Microphone access denied. Please enable permissions and try again.",
-      });
+    // 🔥 CLEAN PREVIOUS STREAM ONLY
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((track) => track.stop());
+      streamRef.current = null;
     }
-  };
 
+    audioChunksRef.current = [];
+
+    setTranscript("");
+
+    const newAttempts = [...attempts];
+    newAttempts[currentIndex] += 1;
+    setAttempts(newAttempts);
+
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    streamRef.current = stream;
+
+    const recorder = new MediaRecorder(stream);
+    mediaRecorderRef.current = recorder;
+
+    recorder.ondataavailable = (event) => {
+      if (event.data.size > 0) {
+        audioChunksRef.current.push(event.data);
+      }
+    };
+
+    recorder.onstop = () => {
+      handleRecordingStop();
+    };
+
+    recorder.start();
+    setRecording(true);
+
+  } catch (err) {
+    console.error("🎤 Mic access error:", err);
+    setPopup({
+      open: true,
+      title: "Microphone Error",
+      message: "Microphone access denied. Please enable permissions and try again.",
+    });
+  }
+};
   const stopRecording = () => {
-    mediaRecorderRef.current?.stop();
-    streamRef.current?.getTracks().forEach((track) => track.stop());
-    setRecording(false);
-  };
+  if (mediaRecorderRef.current && recording) {
+    mediaRecorderRef.current.stop();
+  }
+
+  if (streamRef.current) {
+    streamRef.current.getTracks().forEach((track) => track.stop());
+    streamRef.current = null;
+  }
+
+  setRecording(false);
+};
 
   // ----------------- HANDLE RECORDING STOP -----------------
    const handleRecordingStop = async () => {
-    if (audioChunksRef.current.length === 0) return;
+  if (audioChunksRef.current.length === 0) return;
 
-    const audioBlob = new Blob(audioChunksRef.current, { type: "audio/webm" });
-    const reader = new FileReader();
+  const audioBlob = new Blob(audioChunksRef.current, { type: "audio/webm" });
+  const reader = new FileReader();
 
-    // ✅ FIX: snapshot
-    const index = currentIndex;
-    
-    const question = questions[index];
-    if (!question) {
-      toast.error("Question not loaded properly");
+  const index = currentIndex;
+  const question = questions[index];
+
+  if (!question) {
+    toast.error("Question not loaded properly");
+    return;
+  }
+
+  const attempt = attempts[index];
+
+  // ✅ CLEAN fetch helper (NO state updates here)
+  const fetchJSON = async (url: string, body: any, timeout = 20000) => {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeout);
+
+    try {
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+        signal: controller.signal,
+      });
+
+      let data;
+      try {
+        data = await res.json();
+      } catch {
+        throw new Error("Invalid server response");
+      }
+
+      if (!res.ok) {
+        throw new Error(data.error || "Something went wrong");
+      }
+
+      return data;
+
+    } catch (err: any) {
+      if (err.name === "AbortError") {
+        throw new Error("Request timed out. Please try again.");
+      }
+      throw err;
+
+    } finally {
+      clearTimeout(timer);
+    }
+  };
+
+  reader.onloadend = async () => {
+    if (!isMountedRef.current) return;
+
+    const base64Audio = reader.result as string;
+
+    if (!base64Audio) {
+      toast.error("Audio processing failed");
       return;
     }
 
-    const attempt = attempts[index];
+    setIsLoading(true);
 
-    const fetchJSON = async (url: string, body: any, timeout = 20000) => {
-      const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), timeout);
+    try {
+      // 🔹 TRANSCRIBE
+      const { transcript } = await fetchJSON(
+        `${API_URL}/api/transcribe`,
+        { audioBase64: base64Audio },
+        45000
+      );
 
-      try {
-        const res = await fetch(url, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(body),
-          signal: controller.signal,
-        });
+      setTranscript(transcript);
 
-        let data;
-        try {
-          data = await res.json();
-        } catch {
-          throw new Error("Invalid server response");
-        }
+      // 🔹 EVALUATE
+      const evaluation = await fetchJSON(
+        `${API_URL}/api/evaluate`,
+        { question, answer: transcript },
+        15000
+      );
 
-        if (!res.ok) {
-          throw new Error(data.error || "Something went wrong");
-        }
+      // 🔹 SAVE
+      await fetchJSON(
+        `${API_URL}/api/session/answer`,
+        {
+          userData,
+          question,
+          transcript,
+          feedback: evaluation?.feedback,
+          audioBase64: base64Audio,
+          recordingAttempts: attempt,
+        },
+        15000
+      );
 
-        return data;
-      } catch (err: any) {
-        if (err.name === "AbortError") {
-          throw new Error("Request timed out. Please try again.");
-        }
-        throw err;
-      } finally {
-        clearTimeout(timer);
-      }
-    };
+      // ✅ SUCCESS STATE
+      setAnswers((prev) => {
+        const updated = [...prev];
+        updated[index] = transcript;
+        return updated;
+      });
 
-    reader.onloadend = async () => {
-      if (!isMountedRef.current) return; // ✅ FIX
+      setFeedback((prev) => {
+        const updated = [...prev];
+        updated[index] = {
+          question,
+          answer: transcript,
+          feedback: evaluation?.feedback || "No feedback",
+        };
+        return updated;
+      });
 
-      const base64Audio = reader.result as string;
+      toast.success("Response recorded successfully.");
 
-      if (!base64Audio) {
-        toast.error("Audio processing failed");
-        setIsLoading(false); // ✅ FIX
-        return;
-      }
+    } catch (err: any) {
+      console.error("❌ Error:", err);
 
-      setIsLoading(true);
+      toast.error(err.message || "Processing failed. Please retry.");
 
-      try {
-        const { transcript } = await fetchJSON(
-          `${API_URL}/api/transcribe`,
-          { audioBase64: base64Audio },
-          45000
-        );
+      // 🔥 CRITICAL FIX: overwrite feedback on failure
+      setFeedback((prev) => {
+        const updated = [...prev];
+        updated[index] = {
+          question,
+          answer: "",
+          feedback: "⚠️ Could not generate feedback. Please try again.",
+          error: true,
+        };
+        return updated;
+      });
 
-        setTranscript(transcript);
+      setAnswers((prev) => {
+        const updated = [...prev];
+        updated[index] = "";
+        return updated;
+      });
 
-        const evaluation = await fetchJSON(
-          `${API_URL}/api/evaluate`,
-          { question, answer: transcript },
-          15000
-        );
+      setTranscript("⚠️ Error processing audio");
 
-        await fetchJSON(
-          `${API_URL}/api/session/answer`,
-          {
-            userData,
-            question,
-            transcript,
-            feedback: evaluation?.feedback,
-            audioBase64: base64Audio,
-            recordingAttempts: attempt,
-          },
-          15000
-        );
-
-        setAnswers((prev) => {
-          const updated = [...prev];
-          updated[index] = transcript;
-          return updated;
-        });
-
-        setFeedback((prev) => {
-          const updated = [...prev];
-          updated[index] = {
-            question,
-            answer: transcript,
-            feedback: evaluation?.feedback || "No feedback",
-          };
-          return updated;
-        });
-
-      } catch (err: any) {
-        console.error("❌ Error:", err);
-        toast.error(err.message || "Something went wrong");
-        setTranscript("⚠️ Error processing audio");
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    reader.readAsDataURL(audioBlob);
+    } finally {
+      setIsLoading(false);
+    }
   };
+
+  reader.readAsDataURL(audioBlob);
+};
 
   
   // ----------------- NAVIGATION -----------------
@@ -350,16 +430,55 @@ const InterviewSimulator: React.FC = () => {
 
 const confirmEndInterview = async () => {
   try {
-    await fetch(`${API_URL}/api/session/complete`, {
+    const res = await fetch(`${API_URL}/api/session/phase-complete`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+      },
       body: JSON.stringify({ sessionId: userData.sessionId }),
     });
-  } catch (err) {
-    console.error("❌ Failed to mark complete", err);
-  }
 
+    const data = await res.json();
+
+    // 🔥 FIRST PHASE DONE → SWITCH TO NEXT MODE
+    if (data.phaseCompleted === 1) {
   setShowEndConfirm(false);
+
+  setIsSwitching(true); // 🔥 START LOADER
+
+  const updatedUser = {
+    ...userData,
+    prototype: data.nextPrototype,
+  };
+
+  localStorage.setItem("userData", JSON.stringify(updatedUser));
+  setUserData(updatedUser);
+
+  localStorage.removeItem(`answers_${userData.sessionId}`);
+  localStorage.removeItem(`feedback_${userData.sessionId}`);
+  localStorage.removeItem(`currentIndex_${userData.sessionId}`);
+  localStorage.removeItem(`attempts_${userData.sessionId}`);
+
+  setTimeout(() => {
+    setIsSwitching(false); // 🔥 STOP LOADER
+
+    setPopup({
+      open: true,
+      title: "Next Round",
+      message:
+        "You will now begin the next round of the interview.",
+      onConfirm: () => {
+        navigate("/interview", { replace: true });
+      },
+    });
+  }, 500);
+
+  return;
+}
+    // 🔥 SECOND PHASE DONE → FINAL EXIT
+    if (data.phaseCompleted === 2) {
+  setShowEndConfirm(false);
+  setIsLoading(true); // 🔥 start loader
 
   localStorage.removeItem(`answers_${userData.sessionId}`);
   localStorage.removeItem(`feedback_${userData.sessionId}`);
@@ -367,7 +486,15 @@ const confirmEndInterview = async () => {
   localStorage.removeItem(`attempts_${userData.sessionId}`);
   localStorage.removeItem("userData");
 
-  navigate("/");
+  setTimeout(() => {
+    navigate("/");
+  }, 800); // 🔥 allow loader to show
+
+  return;
+}
+  } catch (err) {
+    console.error("❌ Phase switch failed", err);
+  }
 };
 
   // ----------------- RENDER -----------------
@@ -381,7 +508,7 @@ const confirmEndInterview = async () => {
         </Backdrop>
       )}
       <Container maxWidth="md" sx={{ p: 0, display: 'flex', flexDirection: 'column', gap: 3 }}>
-        <Typography variant="h4" sx={{ textAlign: 'center', color: '#07466E' }}>Interview Session</Typography>
+        <Typography variant="h4" sx={{ textAlign: 'center', color: '#07466E' }}>Interview Session – Mode {userData?.prototype === "A" ? 1 : 2}</Typography>
 
         {questions.length === 0 ? (
           <Backdrop sx={{ color: '#fff', zIndex: theme.zIndex.drawer + 1 }} open>
@@ -420,19 +547,26 @@ const confirmEndInterview = async () => {
               </Tooltip>
               <FeedbackModal open={isFeedbackModalOpen} onClose={() => setIsFeedbackModalOpen(false)} feedback={feedback} currentIndex={currentIndex} />
             </Box>
-            <Dialog open={showEndConfirm} 
-            PaperProps={{ sx: { position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: '80%', maxWidth: 600, maxHeight: '80vh', overflowY: 'auto', bgcolor: '#fcfcfc', borderRadius: '10px', boxShadow: 24, p: 4, border: '1px solid #ddd', fontFamily: 'Segoe UI, sans-serif' } }}
-            onClose={() => setShowEndConfirm(false)}>
-            <DialogTitle>End Interview</DialogTitle>
+           <Dialog open={showEndConfirm}
+  PaperProps={{ sx: { position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: '80%', maxWidth: 600, maxHeight: '80vh', overflowY: 'auto', bgcolor: '#fcfcfc', borderRadius: '10px', boxShadow: 24, p: 4, border: '1px solid #ddd', fontFamily: 'Segoe UI, sans-serif' } }}
+  onClose={() => setShowEndConfirm(false)}
+>
+  <DialogTitle>
+    {userData?.prototype === "A" ? "Finish Round" : "End Interview"}
+  </DialogTitle>
+
   <DialogContent>
     <Typography>
-      Your progress will be saved. Are you sure you want to end the interview?
+      {userData?.prototype === "A"
+        ? "You have completed this round. Proceed to the next round?"
+        : "You have completed the interview. Do you want to exit?"}
     </Typography>
   </DialogContent>
+
   <DialogActions>
     <Button onClick={() => setShowEndConfirm(false)}>Cancel</Button>
     <Button variant="contained" color="error" onClick={confirmEndInterview}>
-      End Interview
+      {userData?.prototype === "A" ? "Next Round" : "Exit"}
     </Button>
   </DialogActions>
 </Dialog>
@@ -445,6 +579,12 @@ const confirmEndInterview = async () => {
                 {popup.onConfirm && <Button variant="contained" onClick={() => { popup.onConfirm?.(); setPopup((p) => ({ ...p, open: false })); }}>{popup.confirmText || "OK"}</Button>}
               </DialogActions>
             </Dialog>
+            {isSwitching && (
+  <Backdrop sx={{ color: "#fff", zIndex: theme.zIndex.drawer + 3 }} open>
+    <CircularProgress color="inherit" />
+    <Typography sx={{ mt: 2 }}>Starting next round...</Typography>
+  </Backdrop>
+)}
           </>
         )}
       </Container>

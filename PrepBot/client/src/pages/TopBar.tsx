@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Box, IconButton, Tooltip, Dialog, DialogTitle, DialogContent, DialogActions, Button, Typography } from "@mui/material";
+import { Box, IconButton, Tooltip, Dialog, DialogTitle, DialogContent, DialogActions, Button, Typography, Backdrop, CircularProgress } from "@mui/material";
 import { useNavigate } from "react-router-dom";
 import HomeIcon from "@mui/icons-material/Home";
 import RestartAltIcon from "@mui/icons-material/RestartAlt";
@@ -13,34 +13,37 @@ interface TopBarProps {
 const TopBar: React.FC<TopBarProps> = ({ color = "#07466E" }) => {
   const navigate = useNavigate();
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [isResetting, setIsResetting] = useState(false);
 
   const handleReset = async () => {
-    const storedUser = localStorage.getItem("userData");
+  setIsResetting(true); // 🔥 start loader
 
-    try {
-      if (storedUser) {
-        const parsed = JSON.parse(storedUser);
+  const storedUser = localStorage.getItem("userData");
 
-        if (parsed?.sessionId) {
-          await fetch(`${API_URL}/api/session/delete`, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({ sessionId: parsed.sessionId }),
-          });
-        }
+  try {
+    if (storedUser) {
+      const parsed = JSON.parse(storedUser);
+
+      if (parsed?.sessionId) {
+        await fetch(`${API_URL}/api/session/delete`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ sessionId: parsed.sessionId }),
+        });
       }
-    } catch (err) {
-      console.error("❌ Reset failed:", err);
     }
+  } catch (err) {
+    console.error("❌ Reset failed:", err);
+  }
 
-    // clear frontend
-    localStorage.clear();
+  localStorage.clear();
 
-    setConfirmOpen(false);
+  setConfirmOpen(false);
+  setIsResetting(false);
     navigate("/", { replace: true });
-  };
+};
 
   return (
     <>
@@ -86,6 +89,12 @@ const TopBar: React.FC<TopBarProps> = ({ color = "#07466E" }) => {
           </Button>
         </DialogActions>
       </Dialog>
+      {isResetting && (
+      <Backdrop open sx={{ color: "#fff", zIndex: 2000 }}>
+        <CircularProgress color="inherit" />
+        <Typography sx={{ mt: 2 }}>Resetting session...</Typography>
+      </Backdrop>
+  )}
     </>
   );
 };

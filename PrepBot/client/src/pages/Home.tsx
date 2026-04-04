@@ -16,6 +16,7 @@ const Home = () => {
 
   const [isStarting, setIsStarting] = useState(false); // ✅ loader
   const [confirmFreshOpen, setConfirmFreshOpen] = useState(false); // ✅ confirm dialog
+  const [isResetting, setIsResetting] = useState(false);
 
   // Load session from localStorage
   useEffect(() => {
@@ -58,16 +59,18 @@ const Home = () => {
           sessionId: Date.now().toString(),
         };
 
-        localStorage.setItem("userData", JSON.stringify(userData));
-
-        await fetch(`${API_URL}/api/session/start`, {
+        const res = await fetch(`${API_URL}/api/session/start`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ userData }),
         });
+        const data = await res.json();
+        // 🔥 store prototype
+        userData.prototype = data.prototype;
+        localStorage.setItem("userData", JSON.stringify(userData));
       }
 
-      navigate("/interview");
+  navigate("/interview");
 
     } catch (err: any) {
       console.error("❌ Session start error:", err);
@@ -79,33 +82,40 @@ const Home = () => {
 
   // 🔥 START FRESH
   const handleStartFresh = async () => {
-    try {
-      if (existingSession?.sessionId) {
-        await fetch(`${API_URL}/api/session/delete`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ sessionId: existingSession.sessionId }),
-        });
-      }
-    } catch (err) {
-      console.error("❌ Delete failed", err);
+  setConfirmFreshOpen(false);
+  setIsResetting(true); // 🔥 START LOADER
+
+  try {
+    if (existingSession?.sessionId) {
+      await fetch(`${API_URL}/api/session/delete`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sessionId: existingSession.sessionId }),
+      });
     }
+  } catch (err) {
+    console.error("❌ Delete failed", err);
+  }
 
-    localStorage.clear();
+  localStorage.clear();
 
-    setExistingSession(null);
-    setName("");
-    setEmail("");
-    setLanguage("non-native");
+  // 🔁 Reset UI state
+  setExistingSession(null);
+  setName("");
+  setEmail("");
+  setLanguage("non-native");
 
-    setConfirmFreshOpen(false);
-  };
+  // 🔥 DELAY so loader is visible
+  setTimeout(() => {
+    setIsResetting(false);
+  }, 700);
+};
 
   return (
     <Container
-      maxWidth="lg"
+  maxWidth="lg"
       sx={{ height: "100vh", display: "flex", alignItems: "center", gap: 4 }}
-    >
+>
       <Box flex={1} sx={{ display: "flex", justifyContent: "center", alignItems: "center" }}>
         <AvatarHome />
       </Box>
@@ -217,7 +227,14 @@ const Home = () => {
           </Button>
         </DialogActions>
       </Dialog>
+      {isResetting && (
+  <Backdrop sx={{ color: "#fff", zIndex: theme.zIndex.drawer + 3 }} open>
+    <CircularProgress color="inherit" />
+    <Typography sx={{ mt: 2 }}>Resetting session...</Typography>
+  </Backdrop>
+)}
     </Container>
+    
   );
 };
 
