@@ -7,6 +7,7 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY!,
 });
 
+
 // ✅ Generate Questions
 export async function generateInterviewQuestions(): Promise<string[]> {
   const prompt = `
@@ -42,67 +43,104 @@ No explanations or extra text.
   }
 }
 
+
 // ✅ Evaluate Answer
 export async function evaluateAnswer(
   question: string,
-  answer: string
+  answer: string,
+  prototype: "A" | "B" = "A",
+  confidence?: number,
+  lowConfidenceRatio?: number
 ): Promise<{ feedback: string }> {
 
- const prompt = `
-You are an AI interview coach helping a candidate improve their answer.
 
-Your goal is to give natural, human-like feedback — similar to real interview coaching tools.
+const uncertaintyContext =
+    prototype === "B" && confidence !== undefined && lowConfidenceRatio !== undefined
+      ? `
+  TRANSCRIPTION CONTEXT:
+  - Average confidence: ${(confidence * 100).toFixed(0)}%
+  - Uncertain word ratio: ${(lowConfidenceRatio * 100).toFixed(0)}%
 
-Instructions:
-- Be conversational and supportive, not robotic
-- Do NOT use headings or bullet points
-- Do NOT mention evaluation criteria like "clarity", "confidence", etc.
-- Do NOT explicitly mention frameworks like STAR
-- Keep the response concise (4–6 sentences max)
-- If the answer is weak or unclear, gently explain what is missing
-- Guide the user toward improving structure (situation, actions, results) WITHOUT naming it
-- Give 1–2 practical suggestions they can apply immediately
-- Avoid repeating the question
+  If confidence is not high or uncertain ratio is noticeable:
+  - Be cautious in judging unclear or incomplete parts
+  - Do not assume the user performed poorly solely based on phrasing
+  `
+      : "";
 
-Adapt your tone based on the answer:
-- If the answer is very short or unclear → point out missing detail
-- If the answer is somewhat okay → suggest improvements
-- If the answer is strong → reinforce and suggest refinement
+  const basePrompt = `
+  You are an AI interview coach evaluating a candidate’s answer.
 
-Question:
-${question}
+  Write natural, human-like feedback similar to real interview preparation tools.
 
-User Answer:
-${answer}
+  STRICT RULES:
+  - No headings or bullet points
+  - No mentioning evaluation criteria explicitly
+  - No mentioning frameworks
+  - Keep it concise (4–6 sentences)
+  - Do not repeat the question
+  `;
 
-Feedback:
+  // 🔴 MODE A → DEFAULT INDUSTRY BEHAVIOR
+  const modeA = `
+  IMPORTANT:
+  - Evaluate the answer exactly as written.
+  - Focus on clarity, coherence, and structure of the response.
+  - If parts are difficult to follow, point that out clearly.
+  - Do NOT reinterpret or fill in missing meaning.
+  - Base your feedback only on what is explicitly stated.
+  `;
+
+  // 🟢 MODE B → UNCERTAINTY + INTENT AWARE
+  const modeB = `
+  IMPORTANT:
+  - Focus on understanding the intended meaning behind the answer rather than exact wording.
+  - If phrasing is unclear or slightly incorrect, try to infer what the user likely meant.
+  - Do NOT penalize minor grammatical issues if the core idea is understandable.
+  - If parts seem confusing, assume they may be due to transcription or expression issues.
+  - Use slightly cautious language such as "it seems like" or "it sounds like".
+  - Prioritize the idea and intent over surface-level fluency.
+  - If transcription confidence is low, be cautious in judging missing or unclear parts.
+  `;
+
+  const prompt = `
+  ${basePrompt}
+
+  ${prototype === "A" ? modeA : modeB}
+
+  ${uncertaintyContext}
+
+  Adapt based on answer quality:
+  - Very short/unclear → explain what is missing
+  - Average → suggest improvements
+  - Strong → reinforce and refine
+
+  Question:
+  ${question}
+
+  User Answer:
+  ${answer}
+
+  Feedback:
 `;
-const controller = new AbortController();
-const timeout = setTimeout(() => controller.abort(), 15000); // 15s
 
   try {
     const response = await openai.chat.completions.create({
       model: "gpt-4o-mini",
       messages: [
-        { role: "system", content: "You are a helpful interview evaluator." },
+        { role: "system", content: "You are a precise interview evaluator." },
         { role: "user", content: prompt },
       ],
     });
 
-   clearTimeout(timeout);
-
-  return {
-    feedback: response.choices[0].message.content || "",
-  };
+    return {
+      feedback: response.choices[0].message.content || "",
+    };
 
   } catch (error) {
-    clearTimeout(timeout);
+    console.error("❌ OpenAI Evaluation Error:", error);
 
-  console.error("❌ OpenAI Evaluation Error:", error);
-
-  // ✅ FALLBACK (VERY IMPORTANT)
-  return {
-    feedback: "⚠️ Feedback could not be generated due to network delay. Please try again.",
-  };
+    return {
+      feedback: "⚠️ Feedback could not be generated. Please try again.",
+    };
   }
 }

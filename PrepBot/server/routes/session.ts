@@ -72,9 +72,14 @@ filePath = `${userData.sessionId}/${userData.prototype}/${fileName}`;
         transcript,
         feedback: feedback || "No feedback",
         attempts: recordingAttempts ?? 1,
-        audioFile: filePath, // ✅ critical
+        audioFile: filePath,
         prototype: userData.prototype,
+
+        confidence: req.body.confidence ?? null,
+        lowConfidenceWords: req.body.lowConfidenceWords ?? null,
+        lowConfidenceRatio: req.body.lowConfidenceRatio ?? 0, // 🔥 ADD
       },
+
       create: {
         sessionId: userData.sessionId,
         question,
@@ -83,6 +88,10 @@ filePath = `${userData.sessionId}/${userData.prototype}/${fileName}`;
         audioFile: filePath,
         attempts: recordingAttempts ?? 1,
         prototype: userData.prototype,
+
+        confidence: req.body.confidence ?? null,
+        lowConfidenceWords: req.body.lowConfidenceWords ?? null,
+        lowConfidenceRatio: req.body.lowConfidenceRatio ?? 0, // 🔥 ADD
       },
     });
 

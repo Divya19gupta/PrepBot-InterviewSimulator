@@ -26,6 +26,10 @@ const modalStyle = {
 type FeedbackType = {
   feedback: string;
   answer: string;
+  lowConfidenceWords?: string[];
+  confidence?: number;
+  prototype?: string;
+  lowConfidenceRatio?: number;
 };
 
 type FeedbackModalProps = {
@@ -42,6 +46,32 @@ export default function FeedbackModal({
   currentIndex,
 }: FeedbackModalProps) {
   const current = feedback[currentIndex];
+  // 🔥 HIGHLIGHT FUNCTION
+  const renderTranscript = (text: string, lowConfidenceWords: string[] = []) => {
+    if (!text) return null;
+
+    const normalize = (word: string) =>
+      word.toLowerCase().replace(/[.,!?]/g, "");
+
+    const words = text.split(" ");
+
+    return words.map((word, index) => {
+      const cleanWord = normalize(word);
+      const isLow = lowConfidenceWords.includes(cleanWord);
+
+      return (
+        <span
+          key={index}
+          style={{
+            color: isLow ? "#e53935" : "inherit",
+            fontWeight: isLow ? "bold" : "normal",
+          }}
+        >
+          {word + " "}
+        </span>
+      );
+    });
+  };
 
   return (
     <Modal
@@ -56,20 +86,70 @@ export default function FeedbackModal({
           <Typography variant="h6" sx={{ color: '#2c3e50', mb: 2 }}>
             Evaluation Feedback
           </Typography>
+          <Typography variant="body2" sx={{ color: '#666', mb: 2 }}>
+  {current?.prototype === "B"
+    ? (() => {
+        const percent = current?.confidence
+          ? (current.confidence * 100).toFixed(0)
+          : null;
 
-          {/* <Typography variant="subtitle2" sx={{ color: '#555', mb: 1 }}>
-            <strong>Transcription:</strong>
-          </Typography>
-          <Typography
-            variant="body2"
-            sx={{ mb: 3, backgroundColor: '#f5f5f5', p: 2, borderRadius: 2 }}
-          >
-            {current?.answer || 'No transcription available.'}
-          </Typography> */}
+       const ratio = current?.lowConfidenceRatio || 0;
 
+        if (ratio > 0.25) {
+          return `Evaluation Confidence: Low ${
+            percent ? `(${percent}%)` : ""
+          } — multiple parts may be uncertain`;
+        }
+
+        if (ratio > 0.05) {
+          return `Evaluation Confidence: Moderate ${
+            percent ? `(${percent}%)` : ""
+          } — some parts may be uncertain`;
+        }
+
+        return `Evaluation Confidence: High ${
+          percent ? `(${percent}%)` : ""
+        }`;
+              })()
+            : ""
+        }
+        </Typography>
+          {/* 🔥 TRANSCRIPT (ONLY IF DATA EXISTS → effectively Mode B) */}
+          {current?.prototype === "B" && current?.answer && (
+            <Box sx={{ mb: 3 }}>
+              <Typography variant="subtitle2" sx={{ color: '#555', mb: 1 }}>
+                <strong>Your Response (Transcribed):</strong>
+              </Typography>
+
+              <Typography
+                variant="body2"
+                sx={{
+                  backgroundColor: '#f5f5f5',
+                  p: 2,
+                  borderRadius: 2,
+                }}
+              >
+                {renderTranscript(
+                  current.answer,
+                  current.lowConfidenceWords || []
+                )}
+              </Typography>
+
+              {/* 🔥 CONFIDENCE
+              {current?.confidence !== undefined && current?.confidence !== null && (
+              <Typography variant="caption" sx={{ color: '#888', mt: 1, display: 'block' }}>
+                  Confidence: {(current.confidence * 100).toFixed(0)}% — lower values
+                  indicate the system was less certain about parts of your speech.
+                </Typography>
+              )} */}
+            </Box>
+          )}
+
+          {/* 🔹 FEEDBACK */}
           <Typography variant="subtitle2" sx={{ color: '#555', mb: 1 }}>
             <strong>Feedback:</strong>
           </Typography>
+
           <ReactMarkdown
             components={{
               p: ({ children }) => (

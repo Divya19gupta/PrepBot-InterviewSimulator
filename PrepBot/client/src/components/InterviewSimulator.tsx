@@ -27,6 +27,8 @@ import ArrowForwardIcon from "@mui/icons-material/ArrowForward";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import FeedbackIcon from "@mui/icons-material/Feedback";
 import toast from "react-hot-toast";
+import CheckCircleIcon from "@mui/icons-material/CheckCircle";
+// import ArrowForwardIcon from "@mui/icons-material/ArrowForward";
 
 const API_URL = import.meta.env.VITE_API_URL || "https://prepbot-server.onrender.com";
 const TOTAL_QUESTIONS = 5;
@@ -101,6 +103,7 @@ const InterviewSimulator: React.FC = () => {
   const [isSwitching, setIsSwitching] = useState(false);
   const prevPrototypeRef = useRef<string | null>(null);
   const isDisabled = recording;
+  const [lowConfidenceWords, setLowConfidenceWords] = useState<string[]>([]);
 
     // ----------------- CLEANUP -----------------
 
@@ -207,6 +210,7 @@ useEffect(() => {
     audioChunksRef.current = [];
 
     setTranscript("");
+    setLowConfidenceWords([]);
 
     const newAttempts = [...attempts];
     newAttempts[currentIndex] += 1;
@@ -270,7 +274,6 @@ useEffect(() => {
 
   const attempt = attempts[index];
 
-  // ✅ CLEAN fetch helper (NO state updates here)
   const fetchJSON = async (url: string, body: any, timeout = 20000) => {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeout);
@@ -295,13 +298,11 @@ useEffect(() => {
       }
 
       return data;
-
     } catch (err: any) {
       if (err.name === "AbortError") {
         throw new Error("Request timed out. Please try again.");
       }
       throw err;
-
     } finally {
       clearTimeout(timer);
     }
@@ -320,19 +321,20 @@ useEffect(() => {
     setIsLoading(true);
 
     try {
-      // 🔹 TRANSCRIBE
-      const { transcript } = await fetchJSON(
+      // 🔹 TRANSCRIBE (UPDATED)
+      const resData = await fetchJSON(
         `${API_URL}/api/transcribe`,
         { audioBase64: base64Audio },
         45000
       );
 
-      setTranscript(transcript);
+      setTranscript(resData.transcript);
+      setLowConfidenceWords(resData.lowConfidenceWords || []);
 
       // 🔹 EVALUATE
       const evaluation = await fetchJSON(
         `${API_URL}/api/evaluate`,
-        { question, answer: transcript },
+        { question, answer: resData.transcript, prototype: userData.prototype, confidence: resData.confidence, lowConfidenceWords: resData.lowConfidenceWords || [], lowConfidenceRatio: resData.lowConfidenceRatio || 0 },
         15000
       );
 
@@ -342,18 +344,21 @@ useEffect(() => {
         {
           userData,
           question,
-          transcript,
+          transcript: resData.transcript,
           feedback: evaluation?.feedback,
           audioBase64: base64Audio,
           recordingAttempts: attempt,
+          confidence: resData.confidence,
+          lowConfidenceWords: resData.lowConfidenceWords,
+          lowConfidenceRatio: resData.lowConfidenceRatio,
+          prototype: userData.prototype,
         },
         15000
       );
 
-      // ✅ SUCCESS STATE
       setAnswers((prev) => {
         const updated = [...prev];
-        updated[index] = transcript;
+        updated[index] = resData.transcript;
         return updated;
       });
 
@@ -361,9 +366,14 @@ useEffect(() => {
         const updated = [...prev];
         updated[index] = {
           question,
-          answer: transcript,
+          answer: resData.transcript,
           feedback: evaluation?.feedback || "No feedback",
+          lowConfidenceWords: resData.lowConfidenceWords || [],
+          confidence: resData.confidence || null,
+          lowConfidenceRatio: resData.lowConfidenceRatio || 0, // 🔥 ADD THIS
+          prototype: userData.prototype,
         };
+     
         return updated;
       });
 
@@ -374,13 +384,15 @@ useEffect(() => {
 
       toast.error(err.message || "Processing failed. Please retry.");
 
-      // 🔥 CRITICAL FIX: overwrite feedback on failure
       setFeedback((prev) => {
         const updated = [...prev];
         updated[index] = {
           question,
           answer: "",
           feedback: "⚠️ Could not generate feedback. Please try again.",
+          lowConfidenceWords: [],
+          lowConfidenceRatio: 1, // 🔥 ASSUME WORST CASE
+          confidence: null,
           error: true,
         };
         return updated;
@@ -393,6 +405,7 @@ useEffect(() => {
       });
 
       setTranscript("⚠️ Error processing audio");
+      setLowConfidenceWords([]);
 
     } finally {
       setIsLoading(false);

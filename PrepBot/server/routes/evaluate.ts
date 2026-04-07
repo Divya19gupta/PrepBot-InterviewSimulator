@@ -11,8 +11,16 @@ router.post("/", async (req, res) => {
       res.status(400).json({ error: "Audio was not clear. Please try again." });
       return;
     }
+    
+    const { prototype, lowConfidenceRatio, confidence, } = req.body; // 🔥 RECEIVE LOW CONFIDENCE RATIO
 
-    const result = await evaluateAnswer(question, answer);
+    const result = await evaluateAnswer(
+      question,
+      answer,
+      prototype || "A",
+      confidence,
+      lowConfidenceRatio || 0, // 🔥 PASS LOW CONFIDENCE RATIO
+    );
 
     // ✅ Type-safe handling
     const feedbackText =

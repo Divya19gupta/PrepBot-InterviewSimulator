@@ -32,7 +32,13 @@ model Answer {
   audioFile   String
   attempts    Int      @default(1)
   createdAt   DateTime @default(now())
-  prototype String
+  prototype   String
+
+  // 🔥 NEW FIELDS (ADD THESE)
+  confidence           Float?     // avg ASR confidence
+  lowConfidenceWords   Json?      // array of words
+  lowConfidenceRatio   Float?
+  editedTranscript     String?    // for later feature (optional but good)
 
   session Session @relation(fields: [sessionId], references: [id])
 
