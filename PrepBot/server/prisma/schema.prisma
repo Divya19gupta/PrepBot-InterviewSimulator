@@ -9,13 +9,13 @@ generator client {
 
 model Session {
   id        String   @id
+  currentIndex Int @default(0)
   userId    String
   name      String
   email     String
   language  String
   status    String   @default("in_progress")
 
-  // 🔥 NEW
   currentPrototype String // "A" | "B"
   phaseCompleted   Int    @default(0) // 0,1,2
 
@@ -34,7 +34,6 @@ model Answer {
   createdAt   DateTime @default(now())
   prototype   String
 
-  // 🔥 NEW FIELDS (ADD THESE)
   confidence           Float?     // avg ASR confidence
   lowConfidenceWords   Json?      // array of words
   lowConfidenceRatio   Float?
@@ -43,4 +42,17 @@ model Answer {
   session Session @relation(fields: [sessionId], references: [id])
 
   @@unique([sessionId, question, prototype])
+}
+
+model PhaseFeedback {
+  id        Int      @id @default(autoincrement())
+  sessionId String
+  prototype String
+
+  accuracy      Int
+  fairness      Int
+  understanding Int
+  blame         String
+
+  createdAt DateTime @default(now())
 }

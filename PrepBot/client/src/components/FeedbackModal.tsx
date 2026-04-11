@@ -1,26 +1,26 @@
-import React from 'react';
-import Modal from '@mui/material/Modal';
-import Box from '@mui/material/Box';
-import Fade from '@mui/material/Fade';
-import Backdrop from '@mui/material/Backdrop';
-import Typography from '@mui/material/Typography';
-import ReactMarkdown from 'react-markdown';
+import React from "react";
+import Modal from "@mui/material/Modal";
+import Box from "@mui/material/Box";
+import Fade from "@mui/material/Fade";
+import Backdrop from "@mui/material/Backdrop";
+import Typography from "@mui/material/Typography";
+import ReactMarkdown from "react-markdown";
 
 const modalStyle = {
-  position: 'absolute' as const,
-  top: '50%',
-  left: '50%',
-  transform: 'translate(-50%, -50%)',
-  width: '80%',
+  position: "absolute" as const,
+  top: "50%",
+  left: "50%",
+  transform: "translate(-50%, -50%)",
+  width: "80%",
   maxWidth: 600,
-  maxHeight: '80vh',
-  overflowY: 'auto',
-  bgcolor: '#fcfcfc',
-  borderRadius: '10px',
+  maxHeight: "80vh",
+  overflowY: "auto",
+  bgcolor: "#fcfcfc",
+  borderRadius: "10px",
   boxShadow: 24,
   p: 4,
-  border: '1px solid #ddd',
-  fontFamily: 'Segoe UI, sans-serif',
+  border: "1px solid #ddd",
+  fontFamily: "Segoe UI, sans-serif",
 };
 
 type FeedbackType = {
@@ -47,7 +47,10 @@ export default function FeedbackModal({
 }: FeedbackModalProps) {
   const current = feedback[currentIndex];
   // 🔥 HIGHLIGHT FUNCTION
-  const renderTranscript = (text: string, lowConfidenceWords: string[] = []) => {
+  const renderTranscript = (
+    text: string,
+    lowConfidenceWords: string[] = [],
+  ) => {
     if (!text) return null;
 
     const normalize = (word: string) =>
@@ -83,55 +86,54 @@ export default function FeedbackModal({
     >
       <Fade in={open}>
         <Box sx={modalStyle}>
-          <Typography variant="h6" sx={{ color: '#2c3e50', mb: 2 }}>
+          <Typography variant="h6" sx={{ color: "#2c3e50", mb: 2 }}>
             Evaluation Feedback
           </Typography>
-          <Typography variant="body2" sx={{ color: '#666', mb: 2 }}>
-  {current?.prototype === "B"
-    ? (() => {
-        const percent = current?.confidence
-          ? (current.confidence * 100).toFixed(0)
-          : null;
+          <Typography variant="body2" sx={{ color: "#666", mb: 2 }}>
+            {current?.prototype === "B"
+              ? (() => {
+                  const percent = current?.confidence
+                    ? (current.confidence * 100).toFixed(0)
+                    : null;
 
-       const ratio = current?.lowConfidenceRatio || 0;
+                  const ratio = current?.lowConfidenceRatio || 0;
 
-        if (ratio > 0.25) {
-          return `Evaluation Confidence: Low ${
-            percent ? `(${percent}%)` : ""
-          } — multiple parts may be uncertain`;
-        }
+                  if (ratio > 0.25) {
+                    return `Transcript Confidence: Low ${
+                      percent ? `(${percent}%)` : ""
+                    } — multiple parts may be uncertain`;
+                  }
 
-        if (ratio > 0.05) {
-          return `Evaluation Confidence: Moderate ${
-            percent ? `(${percent}%)` : ""
-          } — some parts may be uncertain`;
-        }
+                  if (ratio > 0.05) {
+                    return `Transcript Confidence: Moderate ${
+                      percent ? `(${percent}%)` : ""
+                    } — some parts may be uncertain`;
+                  }
 
-        return `Evaluation Confidence: High ${
-          percent ? `(${percent}%)` : ""
-        }`;
-              })()
-            : ""
-        }
-        </Typography>
+                  return `Transcript Confidence: High ${
+                    percent ? `(${percent}%)` : ""
+                  }`;
+                })()
+              : ""}
+          </Typography>
           {/* 🔥 TRANSCRIPT (ONLY IF DATA EXISTS → effectively Mode B) */}
           {current?.prototype === "B" && current?.answer && (
             <Box sx={{ mb: 3 }}>
-              <Typography variant="subtitle2" sx={{ color: '#555', mb: 1 }}>
+              <Typography variant="subtitle2" sx={{ color: "#555", mb: 1 }}>
                 <strong>Your Response (Transcribed):</strong>
               </Typography>
 
               <Typography
                 variant="body2"
                 sx={{
-                  backgroundColor: '#f5f5f5',
+                  backgroundColor: "#f5f5f5",
                   p: 2,
                   borderRadius: 2,
                 }}
               >
                 {renderTranscript(
                   current.answer,
-                  current.lowConfidenceWords || []
+                  current.lowConfidenceWords || [],
                 )}
               </Typography>
 
@@ -146,7 +148,7 @@ export default function FeedbackModal({
           )}
 
           {/* 🔹 FEEDBACK */}
-          <Typography variant="subtitle2" sx={{ color: '#555', mb: 1 }}>
+          <Typography variant="subtitle2" sx={{ color: "#555", mb: 1 }}>
             <strong>Feedback:</strong>
           </Typography>
 
@@ -155,21 +157,23 @@ export default function FeedbackModal({
               p: ({ children }) => (
                 <Typography
                   variant="body1"
-                  sx={{ fontSize: '1rem', lineHeight: 1.6 }}
+                  sx={{ fontSize: "1rem", lineHeight: 1.6 }}
                   paragraph
                 >
                   {children}
                 </Typography>
               ),
               ul: ({ children }) => (
-                <ul style={{ paddingLeft: '1.5rem', marginTop: 0 }}>{children}</ul>
+                <ul style={{ paddingLeft: "1.5rem", marginTop: 0 }}>
+                  {children}
+                </ul>
               ),
               li: ({ children }) => (
-                <li style={{ marginBottom: '0.5rem' }}>{children}</li>
+                <li style={{ marginBottom: "0.5rem" }}>{children}</li>
               ),
             }}
           >
-            {current?.feedback || 'No feedback available.'}
+            {current?.feedback || "No feedback available."}
           </ReactMarkdown>
         </Box>
       </Fade>

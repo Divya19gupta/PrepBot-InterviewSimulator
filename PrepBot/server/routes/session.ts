@@ -1,7 +1,6 @@
 import express from "express";
 import { prisma } from "../db";
 import { supabase } from "../supabaseClient";
-import { prototype } from "events";
 
 const router = express.Router();
 
@@ -18,6 +17,7 @@ router.post("/answer", async (req, res) => {
       transcript,
       feedback,
       recordingAttempts,
+      questionIndex, // 🔥 NEW
     } = req.body;
 
     if (
@@ -40,12 +40,12 @@ router.post("/answer", async (req, res) => {
     const buffer = Buffer.from(base64Parts[1], "base64");
 
     const safeQuestion = question
-  .replace(/[^a-zA-Z0-9]/g, "_")
-  .slice(0, 30);
+      .replace(/[^a-zA-Z0-9]/g, "_")
+      .slice(0, 30);
 
-const fileName = `${userData.prototype}_Q${safeQuestion}_attempt${recordingAttempts}_${Date.now()}.webm`;
+    const fileName = `${userData.prototype}_Q${safeQuestion}_attempt${recordingAttempts}_${Date.now()}.webm`;
 
-filePath = `${userData.sessionId}/${userData.prototype}/${fileName}`;
+    filePath = `${userData.sessionId}/${userData.prototype}/${fileName}`;
 
     const { error: uploadError } = await supabase.storage
       .from("interview-audios")
@@ -54,12 +54,11 @@ filePath = `${userData.sessionId}/${userData.prototype}/${fileName}`;
         upsert: false,
       });
 
-    if (uploadError) {
-      throw new Error(uploadError.message);
-    }
+    if (uploadError) throw new Error(uploadError.message);
 
     uploaded = true;
 
+    // ✅ SAVE ANSWER
     await prisma.answer.upsert({
       where: {
         sessionId_question_prototype: {
@@ -74,12 +73,10 @@ filePath = `${userData.sessionId}/${userData.prototype}/${fileName}`;
         attempts: recordingAttempts ?? 1,
         audioFile: filePath,
         prototype: userData.prototype,
-
         confidence: req.body.confidence ?? null,
         lowConfidenceWords: req.body.lowConfidenceWords ?? null,
-        lowConfidenceRatio: req.body.lowConfidenceRatio ?? 0, // 🔥 ADD
+        lowConfidenceRatio: req.body.lowConfidenceRatio ?? 0,
       },
-
       create: {
         sessionId: userData.sessionId,
         question,
@@ -88,12 +85,21 @@ filePath = `${userData.sessionId}/${userData.prototype}/${fileName}`;
         audioFile: filePath,
         attempts: recordingAttempts ?? 1,
         prototype: userData.prototype,
-
         confidence: req.body.confidence ?? null,
         lowConfidenceWords: req.body.lowConfidenceWords ?? null,
-        lowConfidenceRatio: req.body.lowConfidenceRatio ?? 0, // 🔥 ADD
+        lowConfidenceRatio: req.body.lowConfidenceRatio ?? 0,
       },
     });
+
+    // 🔥 UPDATE CURRENT INDEX IN SESSION
+    if (typeof questionIndex === "number") {
+      await prisma.session.update({
+        where: { id: userData.sessionId },
+        data: {
+          currentIndex: questionIndex,
+        },
+      });
+    }
 
      res.json({ success: true });
      return;
@@ -115,7 +121,7 @@ router.post("/start", async (req, res) => {
   try {
     const { userData } = req.body;
 
-    const currentPrototype = "A"; // ✅ fixed order for now
+    const currentPrototype = "A";
 
     await prisma.session.create({
       data: {
@@ -127,14 +133,16 @@ router.post("/start", async (req, res) => {
         status: "in_progress",
         currentPrototype,
         phaseCompleted: 0,
+        currentIndex: 0, // 🔥 IMPORTANT
       },
     });
 
-    res.json({ success: true, prototype: currentPrototype });
-    return;
+     res.json({ success: true, prototype: currentPrototype });
+     return;
+
   } catch (err) {
-    res.status(500).json({ error: "Failed to start session" });
-    return;
+     res.status(500).json({ error: "Failed to start session" });
+     return;
   }
 });
 
@@ -153,93 +161,38 @@ router.get("/resume/:sessionId", async (req, res) => {
        return;
     }
 
-     res.json({ session, answers: session.answers });
-     return;
+    const currentPrototype = session.currentPrototype;
+
+    const filteredAnswers = session.answers
+      .filter((a) => a.prototype === currentPrototype)
+      .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+
+     res.json({
+      sessionId: session.id,
+      prototype: currentPrototype,
+      phaseCompleted: session.phaseCompleted,
+      currentIndex: session.currentIndex || 0, // 🔥 FIX
+      answers: filteredAnswers.map((a) => ({
+        question: a.question,
+        transcript: a.transcript,
+        feedback: a.feedback,
+        attempts: a.attempts,
+        confidence: a.confidence,
+        lowConfidenceWords: a.lowConfidenceWords,
+        lowConfidenceRatio: a.lowConfidenceRatio,
+        prototype: a.prototype,
+      })),
+    });
+    return;
 
   } catch (err) {
+    console.error(err);
      res.status(500).json({ error: "Failed to fetch session" });
      return;
   }
 });
 
-// COMPLETE SESSION
-router.post("/complete", async (req, res) => {
-  try {
-    const { sessionId } = req.body;
-
-    if (!sessionId) {
-       res.status(400).json({ error: "Missing sessionId" });
-       return;
-    }
-
-    await prisma.session.update({
-      where: { id: sessionId },
-      data: { status: "completed" },
-    });
-
-     res.json({ success: true });
-     return;
-
-  } catch (err) {
-     res.status(500).json({ error: "Failed to complete session" });
-     return;
-  }
-});
-
-// 🔥 DELETE SESSION (START FRESH)
-router.post("/delete", async (req, res) => {
-  try {
-    const { sessionId } = req.body;
-
-    if (!sessionId) {
-      res.status(400).json({ error: "Missing sessionId" });
-      return;
-    }
-
-    const answers = await prisma.answer.findMany({
-      where: { sessionId },
-    });
-
-    // ✅ FILTER VALID PATHS
-    const filePaths = answers
-      .map((a) => a.audioFile)
-      .filter((path) => typeof path === "string" && path.length > 0);
-
-    console.log("🧹 Files to delete:", filePaths);
-
-    if (filePaths.length > 0) {
-      const { data, error } = await supabase.storage
-        .from("interview-audios")
-        .remove(filePaths);
-
-      if (error) {
-        console.error("❌ Supabase delete error:", error);
-      } else {
-        console.log("✅ Deleted files:", filePaths);
-      }
-    } else {
-      console.log("⚠️ No valid files found to delete");
-    }
-
-    // 🔥 delete DB records
-    await prisma.answer.deleteMany({
-      where: { sessionId },
-    });
-
-    await prisma.session.delete({
-      where: { id: sessionId },
-    });
-
-    res.json({ success: true });
-    return;
-
-  } catch (err) {
-    console.error("❌ Delete session failed", err);
-    res.status(500).json({ error: "Failed to delete session" });
-    return;
-  }
-});
-
+// PHASE COMPLETE
 router.post("/phase-complete", async (req, res) => {
   try {
     const { sessionId } = req.body;
@@ -249,8 +202,8 @@ router.post("/phase-complete", async (req, res) => {
     });
 
     if (!session) {
-      res.status(404).json({ error: "Session not found" });
-      return;
+       res.status(404).json({ error: "Session not found" });
+       return;
     }
 
     const newPhase = session.phaseCompleted + 1;
@@ -258,7 +211,7 @@ router.post("/phase-complete", async (req, res) => {
     let nextPrototype = session.currentPrototype;
 
     if (newPhase === 1) {
-      nextPrototype = "B"; // switch after first phase
+      nextPrototype = "B";
     }
 
     await prisma.session.update({
@@ -266,11 +219,12 @@ router.post("/phase-complete", async (req, res) => {
       data: {
         phaseCompleted: newPhase,
         currentPrototype: nextPrototype,
+        currentIndex: 0, // 🔥 RESET INDEX ON PHASE SWITCH
         status: newPhase === 2 ? "completed" : "in_progress",
       },
     });
 
-    res.json({
+     res.json({
       success: true,
       phaseCompleted: newPhase,
       nextPrototype,
@@ -278,8 +232,86 @@ router.post("/phase-complete", async (req, res) => {
     return;
 
   } catch (err) {
-    res.status(500).json({ error: "Failed to update phase" });
-    return;
+     res.status(500).json({ error: "Failed to update phase" });
+     return;
   }
 });
+
+// 🔥 DELETE SESSION (BULLETPROOF)
+router.post("/delete", async (req, res) => {
+  console.log("🔥 DELETE API HIT");
+
+  const { sessionId } = req.body;
+
+  if (!sessionId) {
+    console.log("❌ Missing sessionId");
+     res.status(400).json({ error: "Session ID required" });
+     return;
+  }
+
+  try {
+    // ---------- STORAGE DELETE ----------
+    const collectFilesRecursive = async (path: string): Promise<string[]> => {
+      let allFiles: string[] = [];
+
+      const { data, error } = await supabase.storage
+        .from("interview-audios")
+        .list(path, { limit: 100 });
+
+      if (error) {
+        console.log("⚠️ Storage list error:", error.message);
+        return [];
+      }
+
+      for (const item of data || []) {
+        const fullPath = `${path}/${item.name}`;
+
+        if (!item.metadata || item.metadata.size === null) {
+          const nested = await collectFilesRecursive(fullPath);
+          allFiles = [...allFiles, ...nested];
+        } else {
+          allFiles.push(fullPath);
+        }
+      }
+
+      return allFiles;
+    };
+
+    const files = await collectFilesRecursive(sessionId);
+
+    console.log("🧾 Files found:", files.length);
+
+    if (files.length > 0) {
+      const { error } = await supabase.storage
+        .from("interview-audios")
+        .remove(files);
+
+      if (error) {
+        console.log("⚠️ Delete error:", error.message);
+      }
+    }
+
+    // ---------- DATABASE DELETE ----------
+    await prisma.$transaction([
+      prisma.answer.deleteMany({ where: { sessionId } }),
+      prisma.phaseFeedback.deleteMany({ where: { sessionId } }),
+      prisma.session.delete({ where: { id: sessionId } }),
+    ]);
+
+    console.log("✅ DELETE SUCCESS");
+
+     res.json({
+      success: true,
+      deletedFiles: files.length,
+    });
+    return;
+
+  } catch (err) {
+    console.error("❌ DELETE FAILED:", err);
+     res.status(500).json({ error: "Delete failed" });
+     return;
+  }
+});
+
 export default router;
+

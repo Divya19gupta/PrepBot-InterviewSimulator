@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { AvatarHome } from "./AvatarHome";
 import toast from "react-hot-toast";
 import theme from "../theme";
+import AIBackdrop from "./AIBackdrop";
 
 const API_URL = import.meta.env.VITE_API_URL || "https://prepbot-server.onrender.com";
 
@@ -17,68 +18,103 @@ const Home = () => {
   const [isStarting, setIsStarting] = useState(false); // ✅ loader
   const [confirmFreshOpen, setConfirmFreshOpen] = useState(false); // ✅ confirm dialog
   const [isResetting, setIsResetting] = useState(false);
+  const [isCheckingSession, setIsCheckingSession] = useState(true);
 
   // Load session from localStorage
   useEffect(() => {
-    const storedUser = localStorage.getItem("userData");
-    if (storedUser) {
-      try {
-        const parsed = JSON.parse(storedUser);
-        if (parsed?.sessionId && parsed?.userId) {
-          setExistingSession(parsed);
-          setName(parsed.name || "");
-          setEmail(parsed.email || "");
-          setLanguage(parsed.language || "non-native");
-        } else localStorage.removeItem("userData");
-      } catch {
-        localStorage.removeItem("userData");
-      }
+  const storedUser = localStorage.getItem("userData");
+
+  if (!storedUser) {
+    setIsCheckingSession(false);
+    return;
+  }
+
+  try {
+    const parsed = JSON.parse(storedUser);
+
+    if (!parsed?.sessionId || !parsed?.userId) {
+      localStorage.removeItem("userData");
+      setIsCheckingSession(false);
+      return;
     }
-  }, []);
+
+    fetch(`${API_URL}/api/session/resume/${parsed.sessionId}`)
+      .then((res) => {
+        if (!res.ok) throw new Error();
+        return res.json();
+      })
+      .then(() => {
+        setExistingSession(parsed);
+        setName(parsed.name || "");
+        setEmail(parsed.email || "");
+        setLanguage(parsed.language || "non-native");
+      })
+      .catch(() => {
+        localStorage.removeItem("userData");
+      })
+      .finally(() => {
+        setIsCheckingSession(false); // 🔥 IMPORTANT
+      });
+
+  } catch {
+    localStorage.removeItem("userData");
+    setIsCheckingSession(false);
+  }
+}, []);
 
   const generateUserId = () => "user_" + Math.random().toString(36).substring(2, 9);
 
   // 🚀 START INTERVIEW
   const handleStart = async () => {
-    if (!name.trim() || !email.trim()) return;
+  if (!name.trim() || !email.trim()) return;
 
-    setIsStarting(true);
+  // 🔥 START LOADER
+  setIsStarting(true);
 
-    let userData;
+  // 🔥 FORCE RENDER BEFORE API / NAVIGATION
+  await new Promise((resolve) => setTimeout(resolve, 50));
 
-    try {
-      if (existingSession) {
-        userData = existingSession;
-      } else {
-        const newUserId = generateUserId();
-        userData = {
-          userId: newUserId,
-          name,
-          email,
-          language,
-          sessionId: Date.now().toString(),
-        };
+  let userData;
 
-        const res = await fetch(`${API_URL}/api/session/start`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ userData }),
-        });
-        const data = await res.json();
-        // 🔥 store prototype
-        userData.prototype = data.prototype;
-        localStorage.setItem("userData", JSON.stringify(userData));
-      }
+  try {
+    if (existingSession) {
+      userData = existingSession;
+    } else {
+      const newUserId = generateUserId();
 
-  navigate("/interview");
+      userData = {
+        userId: newUserId,
+        name,
+        email,
+        language,
+        sessionId: Date.now().toString(),
+        prototype: "",
+      };
 
-    } catch (err: any) {
-      console.error("❌ Session start error:", err);
-      toast.error(err.message);
-    } finally {
-      setIsStarting(false);
+      const res = await fetch(`${API_URL}/api/session/start`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userData }),
+      });
+
+      const data = await res.json();
+
+      userData.prototype = data.prototype;
+
+      localStorage.setItem("userData", JSON.stringify(userData));
     }
-  };
+
+    // 🔥 KEEP LOADER VISIBLE BEFORE NAVIGATION
+    await new Promise((resolve) => setTimeout(resolve, 600));
+
+    navigate("/interview");
+
+  } catch (err: any) {
+    console.error("❌ Session start error:", err);
+    toast.error(err.message);
+    setIsStarting(false); // only stop on error
+  }
+};
 
   // 🔥 START FRESH
   const handleStartFresh = async () => {
@@ -111,7 +147,12 @@ const Home = () => {
   }, 700);
 };
 
+if (isCheckingSession) {
+  return <AIBackdrop open stage="loading" />;
+}
   return (
+    <>
+    
     <Container
   maxWidth="lg"
       sx={{ height: "100vh", display: "flex", alignItems: "center", gap: 4 }}
@@ -205,10 +246,7 @@ const Home = () => {
         </DialogContent>
       </Dialog> */}
         {isStarting && (
-          <Backdrop sx={{ color: "#fff", zIndex: theme.zIndex.drawer + 2 }} open>
-                    <CircularProgress color="inherit" />
-                    <Typography sx={{ mt: 2 }}>Starting your interview...</Typography>
-                  </Backdrop>
+          <AIBackdrop open={isStarting} stage="starting" />
         )}
       {/* 🔥 CONFIRM RESET */}
       <Dialog 
@@ -228,13 +266,10 @@ const Home = () => {
         </DialogActions>
       </Dialog>
       {isResetting && (
-  <Backdrop sx={{ color: "#fff", zIndex: theme.zIndex.drawer + 3 }} open>
-    <CircularProgress color="inherit" />
-    <Typography sx={{ mt: 2 }}>Resetting session...</Typography>
-  </Backdrop>
+  <AIBackdrop open={isResetting} stage="resetting" />
 )}
     </Container>
-    
+    </>
   );
 };
 

@@ -3,6 +3,7 @@ import { Box, IconButton, Tooltip, Dialog, DialogTitle, DialogContent, DialogAct
 import { useNavigate } from "react-router-dom";
 import HomeIcon from "@mui/icons-material/Home";
 import RestartAltIcon from "@mui/icons-material/RestartAlt";
+import AIBackdrop from "./AIBackdrop";
 
 const API_URL = import.meta.env.VITE_API_URL || "https://prepbot-server.onrender.com";
 
@@ -16,33 +17,41 @@ const TopBar: React.FC<TopBarProps> = ({ color = "#07466E" }) => {
   const [isResetting, setIsResetting] = useState(false);
 
   const handleReset = async () => {
-  setIsResetting(true); // 🔥 start loader
-
-  const storedUser = localStorage.getItem("userData");
-
-  try {
-    if (storedUser) {
-      const parsed = JSON.parse(storedUser);
-
-      if (parsed?.sessionId) {
-        await fetch(`${API_URL}/api/session/delete`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ sessionId: parsed.sessionId }),
-        });
-      }
-    }
-  } catch (err) {
-    console.error("❌ Reset failed:", err);
-  }
-
-  localStorage.clear();
-
+  // 🔥 CLOSE DIALOG FIRST (important)
   setConfirmOpen(false);
-  setIsResetting(false);
-    navigate("/", { replace: true });
+
+  // 🔥 small delay so dialog unmounts cleanly
+  setTimeout(async () => {
+    setIsResetting(true);
+
+    const storedUser = localStorage.getItem("userData");
+
+    try {
+      if (storedUser) {
+        const parsed = JSON.parse(storedUser);
+
+        if (parsed?.sessionId) {
+          await fetch(`${API_URL}/api/session/delete`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ sessionId: parsed.sessionId }),
+          });
+        }
+      }
+    } catch (err) {
+      console.error("❌ Reset failed:", err);
+    }
+
+    localStorage.removeItem("userData");
+
+    // 🔥 keep loader visible briefly (good UX)
+    setTimeout(() => {
+      navigate("/", { replace: true });
+    }, 500);
+
+  }, 150);
 };
 
   return (
@@ -90,10 +99,7 @@ const TopBar: React.FC<TopBarProps> = ({ color = "#07466E" }) => {
         </DialogActions>
       </Dialog>
       {isResetting && (
-      <Backdrop open sx={{ color: "#fff", zIndex: 2000 }}>
-        <CircularProgress color="inherit" />
-        <Typography sx={{ mt: 2 }}>Resetting session...</Typography>
-      </Backdrop>
+      <AIBackdrop open={isResetting} stage="resetting" />
   )}
     </>
   );

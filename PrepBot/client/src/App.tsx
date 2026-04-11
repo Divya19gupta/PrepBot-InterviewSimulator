@@ -3,8 +3,6 @@ import Home from './pages/Home';
 import Interview from './pages/Interview';
 import { Toaster } from 'react-hot-toast';
 
-// import ReflectionPage from './pages/Reflection';
-
 const App = () => {
   return (
     <>
@@ -12,7 +10,6 @@ const App = () => {
     <Routes>
       <Route path="/" element={<Home />} />
       <Route path="/interview" element={<Interview />} />
-      {/* <Route path="/reflection" element={<ReflectionPage />} /> */}
     </Routes>
     </>
   );
