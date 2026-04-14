@@ -162,16 +162,19 @@ if (isCheckingSession) {
       </Box>
 
       <Box flex={1} sx={{ display: "flex", flexDirection: "column", justifyContent: "center", gap: 3 }}>
-        <Typography variant="h3" sx={{ color: "#07466E" }}>Welcome to PrepBot</Typography>
-        <Typography variant="body1">Practice interviews and get AI feedback.</Typography>
+        <Typography variant="h2" sx={{ color: "#07466E" }}>Welcome to PrepBot</Typography>
+        <Typography variant="subtitle1" sx={{fontStyle: "italic"}}>Practice like it’s real. Improve like a pro.</Typography>
 
         {!existingSession && (
-          <>
+          <Box
+            sx={{ mt: 2, gap: 3, display: "flex", flexDirection: "column", width: "80%" }}
+              >
             <TextField
               label="Enter your name"
               value={name}
               onChange={(e) => setName(e.target.value)}
               fullWidth
+              
             />
             <TextField
               label="Enter your email"
@@ -190,7 +193,7 @@ if (isCheckingSession) {
               <MenuItem value="native">Native Speaker</MenuItem>
               <MenuItem value="non-native">Non-Native Speaker</MenuItem>
             </TextField>
-          </>
+          </Box>
         )}
 
         <Button
@@ -203,6 +206,8 @@ if (isCheckingSession) {
             fontSize: "16px",
             fontWeight: "bold",
             "&:hover": { backgroundColor: "#063655" },
+            width: "80%", 
+            mt: 2,
           }}
           onClick={handleStart}
         >
@@ -224,6 +229,7 @@ if (isCheckingSession) {
               fontWeight: "bold",
               backgroundColor: "red",
               color: "white",
+              width: "80%",
               "&:hover": { backgroundColor: "white", color: "red" },
             }}
             onClick={() => setConfirmFreshOpen(true)}
