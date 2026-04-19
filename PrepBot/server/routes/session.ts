@@ -313,5 +313,50 @@ router.post("/delete", async (req, res) => {
   }
 });
 
+//Phase-feedback
+
+// 🔥 PHASE FEEDBACK
+router.post("/phase-feedback", async (req, res) => {
+  try {
+    const {
+      sessionId,
+      prototype,
+      accuracy,
+      fairness,
+      understanding,
+      blame,
+    } = req.body;
+
+    if (
+      !sessionId ||
+      !prototype ||
+      accuracy == null ||
+      fairness == null ||
+      understanding == null ||
+      !blame
+    ) {
+       res.status(400).json({ error: "Missing fields" });
+       return;
+    }
+
+    await prisma.phaseFeedback.create({
+      data: {
+        sessionId,
+        prototype,
+        accuracy,
+        fairness,
+        understanding,
+        blame,
+      },
+    });
+
+     res.json({ success: true });
+     return;
+  } catch (err: any) {
+    console.error("❌ PHASE FEEDBACK ERROR:", err);
+     res.status(500).json({ error: err.message });
+     return;
+  }
+});
 export default router;
 

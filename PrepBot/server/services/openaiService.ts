@@ -81,26 +81,41 @@ const uncertaintyContext =
   `;
 
   // 🔴 MODE A → DEFAULT INDUSTRY BEHAVIOR
-  const modeA = `
-  IMPORTANT:
-  - Evaluate the answer exactly as written.
-  - Focus on clarity, coherence, and structure of the response.
-  - If parts are difficult to follow, point that out clearly.
-  - Do NOT reinterpret or fill in missing meaning.
-  - Base your feedback only on what is explicitly stated.
-  `;
+ const modeA = `
+IMPORTANT:
+- Evaluate the answer strictly based ONLY on the exact transcript.
+- Treat all transcription as fully accurate.
+- Penalize:
+    → unclear phrasing
+    → grammatical issues
+    → incomplete structure
+- DO NOT infer or assume intended meaning.
+- If wording is unclear, treat it as poor communication.
+- Focus strongly on clarity, precision, and structure.
+- Strongly evaluate language quality (clarity, fluency, structure)
+`;
 
   // 🟢 MODE B → UNCERTAINTY + INTENT AWARE
   const modeB = `
-  IMPORTANT:
-  - Focus on understanding the intended meaning behind the answer rather than exact wording.
-  - If phrasing is unclear or slightly incorrect, try to infer what the user likely meant.
-  - Do NOT penalize minor grammatical issues if the core idea is understandable.
-  - If parts seem confusing, assume they may be due to transcription or expression issues.
-  - Use slightly cautious language such as "it seems like" or "it sounds like".
-  - Prioritize the idea and intent over surface-level fluency.
-  - If transcription confidence is low, be cautious in judging missing or unclear parts.
-  `;
+IMPORTANT:
+- First, assess whether parts of the answer may be unreliable due to transcription uncertainty.
+- Ignore language issues unless they prevent understanding of core idea
+- If confidence is below 95% OR lowConfidenceRatio > 0.1:
+    → DO NOT penalize unclear phrasing
+    → DO NOT criticize grammar or wording
+    → Focus ONLY on what can be reasonably inferred
+    → Explicitly acknowledge uncertainty when judging
+
+- You MUST prioritize meaning over wording.
+
+- If the answer is partially unclear:
+    → Assume the candidate may have expressed it correctly but transcription failed
+    → Evaluate based on likely intent
+
+- Only criticize content if the core idea itself is missing (not language).
+
+- Use cautious reasoning internally, not just softer tone.
+`;
 
   const prompt = `
   ${basePrompt}

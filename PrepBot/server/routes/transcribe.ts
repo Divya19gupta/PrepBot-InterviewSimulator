@@ -65,13 +65,13 @@ router.post("/", async (req, res) => {
 
     // ✅ LOW CONFIDENCE WORDS
     const lowConfidenceWords = words
-      .filter((w: any) => (w.confidence || 0) < 0.85)
+      .filter((w: any) => (w.confidence || 0) < 0.92)
       .map((w: any) => normalize(w.text));
 
     // ✅ LOW CONFIDENCE RATIO (NEW)
     const lowConfidenceRatio =
       words.length > 0
-        ? words.filter((w: any) => (w.confidence || 0) < 0.85).length / words.length
+        ? words.filter((w: any) => (w.confidence || 0) < 0.92).length / words.length
         : 0;
 
     // 🔍 DEBUG (optional)
