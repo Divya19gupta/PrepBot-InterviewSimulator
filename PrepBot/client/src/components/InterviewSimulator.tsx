@@ -537,7 +537,7 @@ const InterviewSimulator: React.FC = () => {
 
     try {
       // 🔹 SEND FEEDBACK
-      await fetch(`${API_URL}/api/phase-feedback`, {
+      await fetch(`${API_URL}/api/session/phase-feedback`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
