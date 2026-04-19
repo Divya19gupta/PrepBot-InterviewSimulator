@@ -34,3 +34,4 @@ prisma/dev.db-journal
 
 # Random mistake fix
 *.txt
+.vercel
