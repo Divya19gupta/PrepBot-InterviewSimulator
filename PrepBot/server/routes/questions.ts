@@ -25,10 +25,22 @@ const router = express.Router();
 // Q5 → complex grammar + reasoning
 // ✅ Static questions (NO API CALL)
 const questions = [
-  "Explain a project where you used specific technologies like React, Node, or APIs. What exactly did you build and how did it work?",
-  "Describe a challenging situation you faced at work or in a project. What did you do step by step and what was the final result?",
-  "Tell me about a mistake you made in a project and how you identified and fixed it.",
-  "Describe a project where you achieved measurable results, including any numbers, timelines, or performance improvements.",
+  // Q1 — Technical articulation (terminology + clarity vs intent)
+  "Explain a project where you used specific technologies like React, Node, or APIs. What exactly did you build and how did the system work end-to-end?",
+
+  // Q2 — Structured storytelling (behavioral + sequencing)
+  "Describe a challenging situation you faced in a project. Walk me through what happened step by step and how you handled it until the final outcome.",
+
+  // Q3 — Error reflection (metacognition)
+  "Tell me about a mistake you made in a project. How did you realize it, and what did you change to fix it?",
+
+  // Q4 — Recall + hesitation (cognitive load, explanation under pressure)
+"Explain a process or concept you are familiar with as clearly as you can, but imagine you are explaining it to someone with no background in it.",
+
+  // Q5 — Quantification (numbers + precision, ASR stress)
+  "Describe a project where you improved performance or efficiency. What changes did you make, and what measurable impact did they have?",
+
+  // Q6 — Comparative reasoning (higher-order thinking)
   "Compare two different approaches you have used to solve a problem. Which one worked better and why?"
 ];
 

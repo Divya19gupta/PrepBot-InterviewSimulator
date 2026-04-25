@@ -1,44 +1,107 @@
 import express from "express";
-import { evaluateAnswer } from "../services/openaiService";
+import {
+  evaluateAnswer,
+  generateWrongFeedback,
+} from "../services/openaiService";
 
 const router = express.Router();
 
+// ==========================
+// 🔀 SHUFFLE FUNCTION
+// ==========================
+function shuffle(array: string[]) {
+  return array.sort(() => Math.random() - 0.5);
+}
+
+// ==========================
+// 🚀 ROUTE
+// ==========================
 router.post("/", async (req, res) => {
   try {
-    const { question, answer } = req.body;
-
-    if (!question || !answer) {
-      res.status(400).json({ error: "Audio was not clear. Please try again." });
-      return;
-    }
-    
-    const { prototype, lowConfidenceRatio, confidence, } = req.body; // 🔥 RECEIVE LOW CONFIDENCE RATIO
-
-    const result = await evaluateAnswer(
+    const {
       question,
       answer,
-      prototype || "A",
       confidence,
-      lowConfidenceRatio || 0, // 🔥 PASS LOW CONFIDENCE RATIO
+      lowConfidenceRatio,
+      sessionConditions,
+      currentIndex,
+    } = req.body;
+
+    // =========================
+    // ✅ STEP 1: SESSION CONDITIONS (FIXED)
+    // =========================
+    let conditions = sessionConditions;
+
+    if (!conditions || conditions.length === 0) {
+      conditions = shuffle([
+        "A_wrong",
+        "B_wrong",
+        "both_correct",
+        "A_wrong",
+        "B_wrong",
+        "both_correct",
+      ]);
+    }
+
+    const condition = conditions[currentIndex];
+
+    // =========================
+    // ✅ STEP 2: CORRECT FEEDBACK (RQ3)
+    // =========================
+    const feedbackA_real = await evaluateAnswer(
+      question,
+      answer,
+      "A"
     );
 
-    // ✅ Type-safe handling
-    const feedbackText =
-      typeof result === "string"
-        ? result
-        : result?.feedback || "No feedback generated";
+    const feedbackB_real = await evaluateAnswer(
+      question,
+      answer,
+      "B"
+    );
 
+    let feedbackA = feedbackA_real;
+    let feedbackB = feedbackB_real;
+    let wrongFeedbackType: "A" | "B" | null = null;
+
+    // =========================
+    // ✅ STEP 3: WRONGNESS (RQ2)
+    // =========================
+    let wrongErrorType: string | null = null;
+let wrongExplanation: string | null = null;
+
+if (condition === "A_wrong") {
+  const wrong = await generateWrongFeedback(question, answer, "A");
+
+      feedbackA = wrong.feedback;
+      wrongFeedbackType = "A";
+      wrongErrorType = wrong.errorType;
+      wrongExplanation = wrong.errorExplanation;
+
+    } else if (condition === "B_wrong") {
+      const wrong = await generateWrongFeedback(question, answer, "B");
+
+      feedbackB = wrong.feedback;
+      wrongFeedbackType = "B";
+      wrongErrorType = wrong.errorType;
+      wrongExplanation = wrong.errorExplanation;
+    }
+
+    // =========================
+    // ✅ RESPONSE (FIXED)
+    // =========================
     res.json({
-      feedback: feedbackText,
-    });
+  feedbackA,
+  feedbackB,
+  wrongFeedbackType,
+  wrongErrorType,
+  wrongExplanation,
+  sessionConditions: conditions,
+});
 
   } catch (err) {
-    console.error("❌ Evaluate error:", err);
-
-    res.status(500).json({
-      feedback: "Evaluation failed. Please try again.",
-    });
-    return;
+    console.error(err);
+    res.status(500).json({ error: "Evaluation failed" });
   }
 });
 

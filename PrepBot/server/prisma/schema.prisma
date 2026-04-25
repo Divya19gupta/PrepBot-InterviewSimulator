@@ -8,51 +8,61 @@ generator client {
 }
 
 model Session {
-  id        String   @id
-  currentIndex Int @default(0)
-  userId    String
-  name      String
-  email     String
-  language  String
-  status    String   @default("in_progress")
-
-  currentPrototype String // "A" | "B"
-  phaseCompleted   Int    @default(0) // 0,1,2
+  id           String   @id
+  currentIndex Int      @default(0)
+  userId       String
+  name         String
+  email        String
+  language     String
+  status       String   @default("in_progress")
 
   answers   Answer[]
   createdAt DateTime @default(now())
 }
 
 model Answer {
-  id          Int      @id @default(autoincrement())
-  sessionId   String
-  question    String
-  transcript  String?
-  feedback    String?
-  audioFile   String
-  attempts    Int      @default(1)
-  createdAt   DateTime @default(now())
-  prototype   String
+  id        Int      @id @default(autoincrement())
+  sessionId String
+  questionIndex Int
+  question  String
 
-  confidence           Float?     // avg ASR confidence
-  lowConfidenceWords   Json?      // array of words
+  transcript String?
+
+  // 🔥 SYSTEM OUTPUT
+  feedbackA String?
+  feedbackB String?
+  wrongFeedbackType String?
+  wrongErrorType   String?
+  wrongExplanation String?
+
+  // 🔥 USER STUDY DATA
+  trustChoice    String?
+  relianceChoice String?
+  fairnessChoice String?
+  blameTarget    String?
+  confidenceUsed Boolean?
+
+  // 🔥 ADD THESE (CRITICAL FOR RQs)
+  clarity       String?
+  understanding String?
+  bias          String?
+  trustReason   String?
+
+  // 🔥 AUDIO + ATTEMPTS
+  audioFile String
+  attempts  Int      @default(1)
+
+  // 🔥 ASR METRICS
+  confidence           Float?
+  lowConfidenceWords   Json?
   lowConfidenceRatio   Float?
-  editedTranscript     String?    // for later feature (optional but good)
+
+  viewedFeedbackA Boolean @default(false)
+  viewedFeedbackB Boolean @default(false)
+
+  createdAt DateTime @default(now())
 
   session Session @relation(fields: [sessionId], references: [id])
 
-  @@unique([sessionId, question, prototype])
-}
-
-model PhaseFeedback {
-  id        Int      @id @default(autoincrement())
-  sessionId String
-  prototype String
-
-  accuracy      Int
-  fairness      Int
-  understanding Int
-  blame         String
-
-  createdAt DateTime @default(now())
+  @@unique([sessionId, questionIndex])
 }
