@@ -106,6 +106,7 @@ const AIBackdrop: React.FC<Props> = ({ open, stage = "loading" }) => {
 
       {/* 🔥 TEXT + TYPING DOTS */}
       <Typography
+      component="div"
         sx={{
           fontSize:
             stage === "evaluating"

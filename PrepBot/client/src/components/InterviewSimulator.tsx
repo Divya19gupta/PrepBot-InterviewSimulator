@@ -16,13 +16,9 @@ import {
   FormControlLabel,
   Radio,
   RadioGroup,
-  Step,
-  StepLabel,
-  Stepper,
 } from "@mui/material";
 import { useTheme } from "@mui/material/styles";
 import Lottie from "lottie-react";
-// import animationData from "../assets/interview-character.json";
 import interviewGuyAnimationData from "../assets/interview-guy.json";
 import FeedbackModal from "./FeedbackModal";
 import TopBar from "../pages/TopBar";
@@ -34,12 +30,13 @@ import ArrowForwardIcon from "@mui/icons-material/ArrowForward";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import FeedbackIcon from "@mui/icons-material/Feedback";
 import toast from "react-hot-toast";
-import CheckCircleIcon from "@mui/icons-material/CheckCircle";
-import AIBackdrop from "../pages/AIBackdrop";
+import AIBackdrop from "../pages/AIBackdrop";      
+import RuleIcon from "@mui/icons-material/Rule";
+import PsychologyIcon from "@mui/icons-material/Psychology"; 
 
 const API_URL =
   import.meta.env.VITE_API_URL || "https://prepbot-server.onrender.com";
-const TOTAL_QUESTIONS = 5;
+const TOTAL_QUESTIONS = 6;
 
 const InterviewSimulator: React.FC = () => {
   const navigate = useNavigate();
@@ -79,13 +76,8 @@ const InterviewSimulator: React.FC = () => {
   const streamRef = useRef<MediaStream | null>(null);
   const hasFetchedRef = useRef(false);
   const isMountedRef = useRef(true);
-  const prevPrototypeRef = useRef<string | null>(null);
-  const isDisabled = recording;
+  
   const [lowConfidenceWords, setLowConfidenceWords] = useState<string[]>([]);
-  const [endFlowStep, setEndFlowStep] = useState<"confirm" | "feedback">(
-    "confirm",
-  );
-  const [showEndFlow, setShowEndFlow] = useState(false);
   const [processingStage, setProcessingStage] = useState<
     "idle" | "transcribing" | "evaluating"
   >("idle");
@@ -101,12 +93,64 @@ const InterviewSimulator: React.FC = () => {
     | "submitting"
   >(null);
 
-  const [phaseFeedback, setPhaseFeedback] = useState({
-    accuracy: "",
-    fairness: "",
-    understanding: "",
-    blame: "",
-  });
+  const [showRQDialog, setShowRQDialog] = useState(false);
+
+const [rqAnswers, setRqAnswers] = useState({
+  clarity: "",
+
+  // 🔵 RQ1
+  RQ1_confidenceHelp: "",
+  RQ1_blame_pre: "",
+  RQ1_blame_post: "",
+
+  // 🟡 RQ2
+  RQ2_trust: "",
+  RQ2_reliance: "",  
+  RQ2_errorDetection: "",
+
+  // 🔴 RQ3
+  RQ3_fairness: "",
+  RQ3_understanding: "",
+  RQ3_fluencyEffect: "",
+});
+
+const [sessionConditions, setSessionConditions] = useState<string[]>([]);
+const isDisabled = recording;
+  const [selectedFeedbackType, setSelectedFeedbackType] =
+  useState<"A" | "B">("A");
+ const currentFeedback = feedback[currentIndex] || {};
+
+const viewedA = !!currentFeedback.viewedFeedbackA;
+const viewedB = !!currentFeedback.viewedFeedbackB;
+
+const isLocked = !!currentFeedback.trustChoice;
+
+const hasAnswer = !!answers[currentIndex];
+
+const hasFeedback =
+  !!currentFeedback.feedbackA && !!currentFeedback.feedbackB;
+
+const canRecord = !isLocked;
+
+const canOpenRQ =
+  hasAnswer &&
+  hasFeedback &&
+  viewedA &&
+  viewedB &&
+  !isLocked;
+
+const isNextEnabled =
+  hasAnswer &&
+  viewedA &&
+  viewedB &&
+  isLocked;
+
+const isFinishEnabled =
+  currentIndex === TOTAL_QUESTIONS - 1 &&
+  isNextEnabled;
+
+const [isInitialLoading, setIsInitialLoading] = useState(true);
+const [isSubmittingRQ, setIsSubmittingRQ] = useState(false);
 
   // ----------------- CLEANUP -----------------
 
@@ -120,116 +164,89 @@ const InterviewSimulator: React.FC = () => {
 
   // ----------------- LOAD SESSION -----------------
 
-  useEffect(() => {
-    if (
-      hasFetchedRef.current &&
-      prevPrototypeRef.current === userData?.prototype
-    )
-      return;
+useEffect(() => {
+  if (hasFetchedRef.current) return;
+  hasFetchedRef.current = true;
 
-    const storedUserData = localStorage.getItem("userData");
-    if (!storedUserData) {
-      navigate("/", { replace: true });
-      return;
-    }
-
-    let parsed;
+  const init = async () => {
     try {
-      parsed = JSON.parse(storedUserData);
-    } catch {
-      localStorage.removeItem("userData");
-      navigate("/", { replace: true });
-      return;
-    }
+      const storedUserData = localStorage.getItem("userData");
 
-    // 🔥 DETECT PROTOTYPE CHANGE
-    const isPrototypeChanged =
-      prevPrototypeRef.current !== null &&
-      prevPrototypeRef.current !== parsed.prototype;
-
-    setUserData(parsed);
-
-    // 🔥 HARD RESET IF MODE CHANGED
-    if (isPrototypeChanged) {
-      setAnswers(Array(TOTAL_QUESTIONS).fill(""));
-      setFeedback(Array(TOTAL_QUESTIONS).fill(null));
-      setAttempts(Array(TOTAL_QUESTIONS).fill(0));
-      setCurrentIndex(0);
-      setTranscript("");
-    }
-
-    const fetchEverything = async () => {
-      try {
-        // ---------------- QUESTIONS ----------------
-        const qRes = await fetch(`${API_URL}/api/questions`);
-        if (!qRes.ok) {
-          const err = await qRes.json();
-          throw new Error(err.error || "Something went wrong");
-        }
-
-        const qData = await qRes.json();
-        const fetchedQuestions = qData.questions.slice(0, TOTAL_QUESTIONS);
-        setQuestions(fetchedQuestions);
-
-        // ---------------- RESUME ----------------
-        const res = await fetch(
-          `${API_URL}/api/session/resume/${parsed.sessionId}`,
-        );
-
-        if (!res.ok) {
-          throw new Error("Failed to restore session");
-        }
-
-        const data = await res.json();
-
-        const answersMap = data.answers || [];
-
-        const answersArr = Array(TOTAL_QUESTIONS).fill("");
-        const feedbackArr = Array(TOTAL_QUESTIONS).fill(null);
-        const attemptsArr = Array(TOTAL_QUESTIONS).fill(0);
-
-        fetchedQuestions.forEach((q: string, index: number) => {
-          const found = answersMap.find(
-            (a: any) => a.question === q && a.prototype === data.prototype, // 🔥 CRITICAL FIX
-          );
-
-          if (found) {
-            answersArr[index] = found.transcript || "";
-            feedbackArr[index] = {
-              question: q,
-              answer: found.transcript,
-              feedback: found.feedback,
-              lowConfidenceWords: found.lowConfidenceWords || [],
-              confidence: found.confidence,
-              lowConfidenceRatio: found.lowConfidenceRatio || 0,
-              prototype: found.prototype,
-            };
-
-            attemptsArr[index] = found.attempts || 0;
-          }
-        });
-
-        setAnswers(answersArr);
-        setFeedback(feedbackArr);
-        setAttempts(attemptsArr);
-
-        const firstUnanswered = answersArr.findIndex((a) => !a);
-        setCurrentIndex(
-          firstUnanswered === -1 ? TOTAL_QUESTIONS - 1 : firstUnanswered,
-        );
-
-        // 🔥 SAVE CURRENT PROTOTYPE
-        prevPrototypeRef.current = parsed.prototype;
-
-        hasFetchedRef.current = true;
-      } catch (err: any) {
-        toast.error(err.message);
-        console.error("❌ Resume failed", err);
+      if (!storedUserData) {
+        navigate("/", { replace: true });
+        return;
       }
-    };
 
-    fetchEverything();
-  }, [navigate, userData?.prototype]);
+      const parsed = JSON.parse(storedUserData);
+      setUserData(parsed);
+
+      setIsInitialLoading(true);
+
+      // 🔹 FETCH BOTH IN PARALLEL
+      const [qRes, res] = await Promise.all([
+        fetch(`${API_URL}/api/questions`),
+        fetch(`${API_URL}/api/session/resume/${parsed.sessionId}`),
+      ]);
+
+      if (!qRes.ok) throw new Error("Failed to fetch questions");
+      if (!res.ok) throw new Error("Failed to resume session");
+
+      const qData = await qRes.json();
+      const data = await res.json();
+
+      const fetchedQuestions = qData.questions.slice(0, TOTAL_QUESTIONS);
+      const answersMap = data.answers || [];
+
+      const answersArr = Array(TOTAL_QUESTIONS).fill("");
+      const feedbackArr = Array(TOTAL_QUESTIONS).fill(null);
+      const attemptsArr = Array(TOTAL_QUESTIONS).fill(0);
+
+      fetchedQuestions.forEach((q: string, index: number) => {
+        const found = answersMap.find(
+          (a: any) => a.questionIndex === index
+        );
+
+        if (found) {
+          answersArr[index] = found.transcript || "";
+
+          feedbackArr[index] = {
+            question: q,
+            answer: found.transcript,
+            feedbackA: found.feedbackA || "",
+            feedbackB: found.feedbackB || "",
+            viewedFeedbackA: found.viewedFeedbackA || false,
+            viewedFeedbackB: found.viewedFeedbackB || false,
+            trustChoice: found.trustChoice || null,
+            lowConfidenceWords: found.lowConfidenceWords || [],
+            confidence: found.confidence,
+            lowConfidenceRatio: found.lowConfidenceRatio || 0,
+          };
+
+          attemptsArr[index] = found.attempts || 0;
+        }
+      });
+
+      // 🔥 SET ALL STATE TOGETHER (IMPORTANT)
+      setQuestions(fetchedQuestions);
+      setAnswers(answersArr);
+      setFeedback(feedbackArr);
+      setAttempts(attemptsArr);
+
+    // 🔥 GET LAST SAVED ANSWER
+const safeIndex = data.currentIndex ?? 0;
+
+setCurrentIndex(safeIndex);
+
+    } catch (err: any) {
+      console.error("❌ Resume failed:", err);
+      toast.error(err.message || "Failed to restore session");
+    } finally {
+      setIsInitialLoading(false);
+    }
+  };
+
+  init();
+}, []);
 
   // ----------------- RECORDING -----------------
   const startRecording = async () => {
@@ -292,151 +309,92 @@ const InterviewSimulator: React.FC = () => {
     setRecording(false);
   };
 
-  // ----------------- HANDLE RECORDING STOP -----------------
   const handleRecordingStop = async () => {
-    if (audioChunksRef.current.length === 0) return;
+  if (audioChunksRef.current.length === 0) return;
 
-    const audioBlob = new Blob(audioChunksRef.current, { type: "audio/webm" });
-    const reader = new FileReader();
+  const audioBlob = new Blob(audioChunksRef.current, { type: "audio/webm" });
+  const reader = new FileReader();
 
-    const index = currentIndex;
-    const question = questions[index];
+  const index = currentIndex;
+  const question = questions[index];
 
-    if (!question) {
-      toast.error("Question not loaded properly");
+  if (!question) {
+    toast.error("Question not loaded properly");
+    return;
+  }
+
+  const attempt = attempts[index];
+
+  const fetchJSON = async (url: string, body: any, timeout = 20000) => {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeout);
+
+    try {
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+        signal: controller.signal,
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || "Something went wrong");
+      }
+
+      return data;
+    } catch (err: any) {
+      if (err.name === "AbortError") {
+        throw new Error("Request timed out. Please try again.");
+      }
+      throw err;
+    } finally {
+      clearTimeout(timer);
+    }
+  };
+
+  reader.onloadend = async () => {
+    if (!isMountedRef.current) return;
+
+    const base64Audio = reader.result as string;
+
+    if (!base64Audio) {
+      toast.error("Audio processing failed");
       return;
     }
 
-    const attempt = attempts[index];
+    setIsLoading(true);
 
-    const fetchJSON = async (url: string, body: any, timeout = 20000) => {
-      const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), timeout);
+    try {
+      // =========================
+      // 🔹 TRANSCRIBE
+      // =========================
+      setProcessingStage("transcribing");
 
-      try {
-        const res = await fetch(url, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(body),
-          signal: controller.signal,
-        });
+      const resData = await fetchJSON(`${API_URL}/api/transcribe`, {
+        audioBase64: base64Audio,
+      });
 
-        let data;
-        try {
-          data = await res.json();
-        } catch {
-          throw new Error("Invalid server response");
-        }
+      // =========================
+      // 🔥 EMPTY TRANSCRIPT FIX
+      // =========================
+      if (!resData?.transcript || resData.transcript.trim().length === 0) {
+        toast.error("No speech detected. Please try again.");
 
-        if (!res.ok) {
-          throw new Error(data.error || "Something went wrong");
-        }
-
-        return data;
-      } catch (err: any) {
-        if (err.name === "AbortError") {
-          throw new Error("Request timed out. Please try again.");
-        }
-        throw err;
-      } finally {
-        clearTimeout(timer);
-      }
-    };
-
-    reader.onloadend = async () => {
-      if (!isMountedRef.current) return;
-
-      const base64Audio = reader.result as string;
-
-      if (!base64Audio) {
-        toast.error("Audio processing failed");
-        return;
-      }
-
-      setIsLoading(true);
-
-      try {
-        // 🔹 TRANSCRIBE (UPDATED)
-        setProcessingStage("transcribing");
-        const resData = await fetchJSON(
-          `${API_URL}/api/transcribe`,
-          { audioBase64: base64Audio },
-          45000,
-        );
-
-        setTranscript(resData.transcript);
-        setLowConfidenceWords(resData.lowConfidenceWords || []);
-
-        // 🔹 EVALUATE
-        setProcessingStage("evaluating");
-        const evaluation = await fetchJSON(
-          `${API_URL}/api/evaluate`,
-          {
+        setFeedback((prev) => {
+          const updated = [...prev];
+          updated[index] = {
             question,
-            answer: resData.transcript,
-            prototype: userData.prototype,
-            confidence: resData.confidence,
+          answer: "",
+          feedbackA: "⚠️ Could not generate feedback. Please try again.",
+          feedbackB: "⚠️ Could not generate feedback. Please try again.",
+          wrongFeedbackType: null,
+          wrongErrorType: null,
+          wrongExplanation: null,
             lowConfidenceWords: resData.lowConfidenceWords || [],
+            confidence: resData.confidence,
             lowConfidenceRatio: resData.lowConfidenceRatio || 0,
-          },
-          15000,
-        );
-
-        // 🔹 SAVE
-        await fetchJSON(
-          `${API_URL}/api/session/answer`,
-          {
-            userData,
-            question,
-            transcript: resData.transcript,
-            feedback: evaluation?.feedback,
-            audioBase64: base64Audio,
-            recordingAttempts: attempt,
-            confidence: resData.confidence,
-            lowConfidenceWords: resData.lowConfidenceWords,
-            lowConfidenceRatio: resData.lowConfidenceRatio,
-            prototype: userData.prototype,
-          },
-          15000,
-        );
-
-        setAnswers((prev) => {
-          const updated = [...prev];
-          updated[index] = resData.transcript;
-          return updated;
-        });
-
-        setFeedback((prev) => {
-          const updated = [...prev];
-          updated[index] = {
-            question,
-            answer: resData.transcript,
-            feedback: evaluation?.feedback || "No feedback",
-            lowConfidenceWords: resData.lowConfidenceWords || [],
-            confidence: resData.confidence || null,
-            lowConfidenceRatio: resData.lowConfidenceRatio || 0, // 🔥 ADD THIS
-            prototype: userData.prototype,
-          };
-
-          return updated;
-        });
-        setProcessingStage("idle");
-        toast.success("Response recorded successfully.");
-      } catch (err: any) {
-        console.error("❌ Error:", err);
-
-        toast.error(err.message || "Processing failed. Please retry.");
-
-        setFeedback((prev) => {
-          const updated = [...prev];
-          updated[index] = {
-            question,
-            answer: "",
-            feedback: "⚠️ Could not generate feedback. Please try again.",
-            lowConfidenceWords: [],
-            lowConfidenceRatio: 1, // 🔥 ASSUME WORST CASE
-            confidence: null,
-            error: true,
           };
           return updated;
         });
@@ -447,40 +405,275 @@ const InterviewSimulator: React.FC = () => {
           return updated;
         });
 
-        setTranscript("⚠️ Error processing audio");
+        setTranscript("");
         setLowConfidenceWords([]);
-      } finally {
+        setProcessingStage("idle");
         setIsLoading(false);
-      }
-    };
 
-    reader.readAsDataURL(audioBlob);
+        return;
+      }
+
+      // =========================
+      // 🔹 STORE TRANSCRIPT
+      // =========================
+      setTranscript(resData.transcript);
+      setLowConfidenceWords(resData.lowConfidenceWords || []);
+
+      // =========================
+      // 🔹 EVALUATE (ONLY ONCE)
+      // =========================
+      setProcessingStage("evaluating");
+      
+      const evaluation = await fetchJSON(`${API_URL}/api/evaluate`, {
+  question,
+  answer: resData.transcript,
+  confidence: resData.confidence,
+  lowConfidenceRatio: resData.lowConfidenceRatio || 0,
+  sessionConditions: sessionConditions || [],
+  currentIndex,
+});
+
+// ✅ ALWAYS sync AFTER response
+if (evaluation?.sessionConditions) {
+  setSessionConditions(evaluation.sessionConditions);
+}
+      // 🔥 EXTRACT CORRECTLY
+      const feedbackA = evaluation?.feedbackA || "";
+      const feedbackB = evaluation?.feedbackB || "";
+      const wrongFeedbackType = evaluation?.wrongFeedbackType || null;
+      const wrongErrorType = evaluation?.wrongErrorType || null;
+      const wrongExplanation = evaluation?.wrongExplanation || null;
+      // =========================
+      // 🔹 SAVE TO BACKEND
+      // =========================
+      await fetchJSON(`${API_URL}/api/session/answer`, {
+        userData,
+        question,
+        questionIndex: index,
+        transcript: resData.transcript,
+        feedbackA,
+        feedbackB,
+        wrongFeedbackType,
+        wrongErrorType,
+        wrongExplanation,
+        audioBase64: base64Audio,
+        recordingAttempts: attempt,
+        confidence: resData.confidence,
+        lowConfidenceWords: resData.lowConfidenceWords,
+        lowConfidenceRatio: resData.lowConfidenceRatio,
+      });
+
+      // =========================
+      // 🔹 UPDATE UI STATE
+      // =========================
+      setAnswers((prev) => {
+        const updated = [...prev];
+        updated[index] = resData.transcript;
+        return updated;
+      });
+
+      setFeedback((prev) => {
+        const updated = [...prev];
+        updated[index] = {
+          question,
+          answer: resData.transcript,
+          feedbackA,
+          feedbackB,
+          wrongFeedbackType,
+          wrongErrorType,
+          wrongExplanation,
+          lowConfidenceWords: resData.lowConfidenceWords || [],
+          confidence: resData.confidence,
+          lowConfidenceRatio: resData.lowConfidenceRatio || 0,
+        };
+        return updated;
+      });
+
+      setProcessingStage("idle");
+      toast.success("Response recorded successfully.");
+    } catch (err: any) {
+      console.error(err);
+
+      toast.error(err.message || "Processing failed. Please retry.");
+
+      setFeedback((prev) => {
+        const updated = [...prev];
+        updated[index] = {
+          question,
+          answer: "",
+          feedbackA: "⚠️ Could not generate feedback. Please try again.",
+          feedbackB: "⚠️ Could not generate feedback. Please try again.",
+          wrongFeedbackType: null,
+          wrongErrorType: null,
+          wrongExplanation: null,
+          lowConfidenceWords: [],
+          lowConfidenceRatio: 1,
+          confidence: null,
+          error: true,
+        };
+        return updated;
+      });
+
+      setAnswers((prev) => {
+        const updated = [...prev];
+        updated[index] = "";
+        return updated;
+      });
+
+      setTranscript("⚠️ Error processing audio");
+      setLowConfidenceWords([]);
+    } finally {
+      setIsLoading(false);
+    }
   };
+
+  reader.readAsDataURL(audioBlob);
+};
 
   // ----------------- NAVIGATION -----------------
-  const handleNext = () => {
-    if (recording) return;
+  
+ const handleNext = async () => {
+  if (recording) return;
 
-    if (!answers[currentIndex]) {
-      setPopup({
-        open: true,
-        title: "Incomplete Answer",
-        message: "Please answer before moving ahead.",
+  if (!answers[currentIndex]) {
+    toast.error("Please answer before moving ahead.");
+    return;
+  }
+
+  if (!viewedA || !viewedB) {
+    toast.error("Please review both feedback types.");
+    return;
+  }
+
+  if (!isLocked) {
+    toast.error("Please submit feedback first.");
+    return;
+  }
+
+  if (currentIndex < TOTAL_QUESTIONS - 1) {
+    const nextIndex = currentIndex + 1;
+
+    try {
+      // 🔥 ONLY update session index (NO /answer call)
+      await fetch(`${API_URL}/api/session/update-index`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          sessionId: userData.sessionId,
+          questionIndex: nextIndex,
+        }),
       });
-      return;
+    } catch (err) {
+      console.error("❌ Index update failed", err);
     }
 
-    if (currentIndex < TOTAL_QUESTIONS - 1) {
-      setIsTransitioning(true);
+    // 🔥 UI update
+    setIsTransitioning(true);
 
-      setTimeout(() => {
-        setCurrentIndex((prev) => prev + 1);
-        setTranscript("");
-        setIsTransitioning(false);
-      }, 250);
+    setTimeout(() => {
+      setCurrentIndex(nextIndex);
+      setTranscript("");
+      setIsTransitioning(false);
+    }, 50);
+  }
+};
+const handleRQSubmit = async () => {
+  // 🔴 prevent double click / spam
+  if (isSubmittingRQ) return;
+  setIsSubmittingRQ(true);
+
+  const {
+    clarity,
+    RQ1_confidenceHelp,
+    RQ1_blame_pre,
+    RQ1_blame_post,
+    RQ2_trust,
+    RQ2_reliance,
+    RQ2_errorDetection,
+    RQ3_fairness,
+    RQ3_understanding,
+    RQ3_fluencyEffect,
+  } = rqAnswers;
+
+  // =========================
+  // 🔴 VALIDATION
+  // =========================
+  if (
+    !clarity ||
+    !RQ1_confidenceHelp ||
+    !RQ1_blame_pre ||
+    !RQ1_blame_post ||
+    !RQ2_trust ||
+    !RQ2_reliance ||
+    !RQ2_errorDetection ||
+    !RQ3_fairness ||
+    !RQ3_understanding ||
+    !RQ3_fluencyEffect
+  ) {
+    toast.error("Please answer all feedback questions");
+    setIsSubmittingRQ(false);
+    return;
+  }
+
+  try {
+    const res = await fetch(`${API_URL}/api/session/answer/feedback`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        sessionId: userData.sessionId,
+        questionIndex: currentIndex,
+        confidenceUsed: RQ1_confidenceHelp === "yes",
+        blameTarget: `${RQ1_blame_pre}|${RQ1_blame_post}`,
+        trustChoice: RQ2_trust,
+        relianceChoice: RQ2_reliance,
+        trustReason: RQ2_errorDetection,
+        fairnessChoice: RQ3_fairness,
+        understanding: RQ3_understanding,
+        bias: RQ3_fluencyEffect,
+        clarity,
+      }),
+    });
+
+    // =========================
+    // 🔴 HANDLE FAILURE
+    // =========================
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.error || "Failed to save feedback");
     }
-  };
 
+    // =========================
+    // ✅ LOCK UI ONLY AFTER SUCCESS
+    // =========================
+    setFeedback((prev) => {
+      const updated = [...prev];
+      const existing = updated[currentIndex] || {};
+
+      updated[currentIndex] = {
+        ...existing,
+        trustChoice: RQ2_trust, // 🔥 THIS TRIGGERS LOCK
+      };
+
+      return updated;
+    });
+
+    setShowRQDialog(false);
+    toast.success("Feedback submitted successfully");
+
+  } catch (err: any) {
+    console.error("❌ Feedback save failed:", err);
+    toast.error(err.message || "Failed to save feedback");
+
+    // ❗ DO NOTHING → UI remains editable
+  } finally {
+    // 🔁 ALWAYS RESET
+    setIsSubmittingRQ(false);
+  }
+};
   const handlePrevious = () => {
     if (currentIndex > 0) {
       setIsTransitioning(true);
@@ -495,131 +688,128 @@ const InterviewSimulator: React.FC = () => {
 
   // ----------------- FINISH ROUND -----------------
 
-  const handleFinishRound = () => {
-    if (recording) return;
+  const handleFinishRound = async () => {
+  if (recording) return;
 
-    if (!answers[currentIndex]) {
-      setPopup({
-        open: true,
-        title: "Incomplete Answer",
-        message: "Please answer before proceeding.",
-      });
-      return;
-    }
+  const currentFeedback = feedback[currentIndex] || {};
 
-    setPhaseFeedback({
-      accuracy: "",
-      fairness: "",
-      understanding: "",
-      blame: "",
-    });
+  const viewedA = !!currentFeedback.viewedFeedbackA;
+  const viewedB = !!currentFeedback.viewedFeedbackB;
+  const isLocked = !!currentFeedback.trustChoice;
 
-    setEndFlowStep("confirm");
-    setShowEndFlow(true);
-  };
+  const isLast = currentIndex === TOTAL_QUESTIONS - 1;
 
-  const handleSubmitFeedback = async () => {
-    const { accuracy, fairness, understanding, blame } = phaseFeedback;
+  if (!isLast) {
+    toast.error("Complete all questions first.");
+    return;
+  }
 
-    if (!accuracy || !fairness || !understanding || !blame) {
-      toast.error("All feedback fields are mandatory.");
-      return;
-    }
+  if (!answers[currentIndex]) {
+    toast.error("Please answer the last question.");
+    return;
+  }
 
-    // 🔥 CLOSE DIALOG IMMEDIATELY (THIS IS THE FIX)
-    setShowEndFlow(false);
+  if (!viewedA || !viewedB) {
+    toast.error("Please review both feedback types.");
+    return;
+  }
 
-    // 🔥 SHOW LOADER
+  if (!isLocked) {
+    toast.error("Please save feedback before finishing.");
+    return;
+  }
+
+  // 🔥 confirm popup
+  setPopup({
+    open: true,
+    title: "End Interview",
+    message: "Are you sure you want to end the interview?",
+    confirmText: "End",
+    onConfirm: async () => {
+  try {
     setGlobalStage("submitting");
 
-    // 🔥 FORCE UI UPDATE BEFORE API
-    await new Promise((resolve) => setTimeout(resolve, 50));
+    // 🔥 allow UI to render loader
+    await new Promise((r) => setTimeout(r, 50));
 
-    try {
-      // 🔹 SEND FEEDBACK
-      await fetch(`${API_URL}/api/session/phase-feedback`, {
+    await fetch(`${API_URL}/api/session/complete`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        sessionId: userData.sessionId,
+      }),
+    });
+
+    localStorage.removeItem("userData");
+
+    navigate("/", { replace: true });
+  } catch (err) {
+    console.error(err);
+    toast.error("Failed to finish interview");
+  } finally {
+    setGlobalStage(null);
+  }
+}
+  });
+};
+
+
+
+  // ----------------- FEEDBACK VIEWING -----------------
+  const markFeedbackViewed = async (type: "A" | "B") => {
+  try {
+
+    const isValidFeedback =
+    hasAnswer &&
+    currentFeedback.feedbackA &&
+    currentFeedback.feedbackB &&
+    !currentFeedback.error &&
+    !currentFeedback.feedbackA.includes("⚠️") &&
+    !currentFeedback.feedbackB.includes("⚠️");
+
+    if (isValidFeedback) {
+      await fetch(`${API_URL}/api/session/viewed`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
           sessionId: userData.sessionId,
-          prototype: userData.prototype,
-          accuracy: Number(accuracy),
-          fairness: Number(fairness),
-          understanding: Number(understanding),
-          blame,
+          questionIndex: currentIndex,
+          type,
         }),
       });
 
-      // 🔹 COMPLETE PHASE
-      const res = await fetch(`${API_URL}/api/session/phase-complete`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          sessionId: userData.sessionId,
-        }),
-      });
+      // ✅ update from backend response assumption
+      setFeedback((prev) => {
+        const updated = [...prev];
+        const existing = updated[currentIndex] || {};
 
-      const data = await res.json();
-
-      // ===============================
-      // 🔥 NEXT ROUND
-      // ===============================
-      if (data.phaseCompleted === 1) {
-        const updatedUser = {
-          ...userData,
-          prototype: data.nextPrototype,
+        updated[currentIndex] = {
+          ...existing,
+          viewedFeedbackA:
+            type === "A" ? true : existing.viewedFeedbackA,
+          viewedFeedbackB:
+            type === "B" ? true : existing.viewedFeedbackB,
         };
 
-        hasFetchedRef.current = false;
-
-        localStorage.setItem("userData", JSON.stringify(updatedUser));
-        setUserData(updatedUser);
-
-        setGlobalStage("new-round");
-
-        await new Promise((r) => setTimeout(r, 600));
-
-        hasFetchedRef.current = false;
-        navigate("/interview", { replace: true });
-
-        return;
-      }
-
-      // ===============================
-      // 🔥 FINAL EXIT
-      // ===============================
-      if (data.phaseCompleted === 2) {
-        setGlobalStage("loading");
-
-        localStorage.removeItem("userData");
-
-        await new Promise((r) => setTimeout(r, 600));
-
-        navigate("/");
-      }
-    } catch (err) {
-      console.error(err);
-      toast.error("Submission failed. Try again.");
-    } finally {
-      setTimeout(() => {
-        setGlobalStage(null);
-      }, 800);
+        return updated;
+      });
     }
-  };
-
+    else {
+      return;
+    }
+  } catch (err) {
+    console.error(err);
+  }
+};
   // ----------------- RENDER -----------------
 
-  if (!userData || questions.length === 0) {
-    return (
-      <>
-        <AIBackdrop open stage={"loading"} />
-      </>
-    );
-  }
+ if (isInitialLoading) {
+  return <AIBackdrop open stage="loading" />;
+}
 
   return (
     <>
@@ -639,7 +829,7 @@ const InterviewSimulator: React.FC = () => {
           display: "flex",
           flexDirection: "column",
           justifyContent: "center",
-          py: 6,
+          py: 4,
           px: 3,
           position: "relative",
         }}
@@ -670,34 +860,7 @@ const InterviewSimulator: React.FC = () => {
             zIndex: 2,
           }}
         >
-          <Stepper
-            activeStep={userData?.prototype === "A" ? 0 : 1}
-            alternativeLabel
-            sx={{
-              mb: 2,
-
-              "& .MuiStepIcon-root.Mui-completed": {
-                color: "#2e7d32", // ✅ green
-              },
-
-              "& .MuiStepIcon-root.Mui-active": {
-                color: "#07466E", // keep your blue
-              },
-
-              "& .MuiStepIcon-text": {
-                fill: "#fff",
-                fontWeight: "bold",
-              },
-            }}
-          >
-            <Step>
-              <StepLabel>Round 1</StepLabel>
-            </Step>
-            <Step>
-              <StepLabel>Round 2</StepLabel>
-            </Step>
-          </Stepper>
-
+            
           {questions.length === 0 ? (
             <Backdrop
               sx={{ color: "#fff", zIndex: theme.zIndex.drawer + 1 }}
@@ -786,33 +949,17 @@ const InterviewSimulator: React.FC = () => {
                   backdropFilter: "blur(8px)",
                   backgroundColor: "rgba(255, 255, 255, 0.75)",
                   borderRadius: "50px",
+                  boxShadow: "0 2px 6px rgba(0,0,0,0.15)",
                   p: 2,
                 }}
               >
-                <Tooltip title="Previous Question">
-                  <IconButton
-                    onClick={handlePrevious}
-                    disabled={isDisabled || currentIndex === 0}
-                    sx={{
-                      color: currentIndex === 0 ? "#ccc" : "#fff",
-                      backgroundColor:
-                        currentIndex === 0 ? "#e0e0e0" : "#07466E",
-                      borderRadius: "50%",
-                      p: 1.5,
-                      "&:hover": {
-                        backgroundColor:
-                          currentIndex === 0 ? "#e0e0e0" : "#063655",
-                      },
-                    }}
-                  >
-                    <ArrowBackIcon fontSize="small" />
-                  </IconButton>
-                </Tooltip>
                 <Tooltip
                   title={recording ? "Stop Recording" : "Start Recording"}
                 >
+                  <span>
                   <IconButton
                     onClick={recording ? stopRecording : startRecording}
+                    disabled={!canRecord}
                     sx={{
                       color: "#fff",
                       backgroundColor: recording ? "#e53935" : "#07466E",
@@ -820,6 +967,10 @@ const InterviewSimulator: React.FC = () => {
                       p: 1.5,
                       "&:hover": {
                         backgroundColor: recording ? "#d32f2f" : "#063655",
+                      },
+                      "&.Mui-disabled": {
+                        color: "#bbb",
+                        backgroundColor: "#e0e0e0",
                       },
                     }}
                   >
@@ -829,10 +980,13 @@ const InterviewSimulator: React.FC = () => {
                       <MicIcon fontSize="small" />
                     )}
                   </IconButton>
+                  </span>
                 </Tooltip>
                 <Tooltip title="Next Question">
+                  <span>
                   <IconButton
                     onClick={handleNext}
+                    disabled={!isNextEnabled}
                     sx={{
                       color:
                         currentIndex >= TOTAL_QUESTIONS - 1 ? "#ccc" : "#fff",
@@ -848,294 +1002,145 @@ const InterviewSimulator: React.FC = () => {
                             ? "#e0e0e0"
                             : "#063655",
                       },
+                      "&.Mui-disabled": {
+                        color: "#bbb",
+                        backgroundColor: "#e0e0e0",
+                      },
                     }}
-                    disabled={isDisabled || currentIndex >= TOTAL_QUESTIONS - 1}
+                    
                   >
                     <ArrowForwardIcon fontSize="small" />
                   </IconButton>
+                  </span>
                 </Tooltip>
-                <Tooltip title="View Feedback">
-                  <IconButton
-                    onClick={() => setIsFeedbackModalOpen(true)}
-                    sx={{
-                      color: "#fff",
-                      backgroundColor: "#07466E",
-                      borderRadius: "50%",
-                      p: 1.5,
-                      "&:hover": { backgroundColor: "#063655" },
-                    }}
-                    disabled={isDisabled}
-                  >
-                    <FeedbackIcon />
-                  </IconButton>
-                </Tooltip>
+                
+            
+{/* 🔥 STRUCTURE FEEDBACK */}
+<Tooltip title="Structured feedback">
+  <span>
+  <IconButton
+   onClick={() => {
+  setSelectedFeedbackType("A");
+  markFeedbackViewed("A");
+  setIsFeedbackModalOpen(true);
+}}
+    sx={{
+       borderRadius: "50%",
+       p: 1.5,
+      backgroundColor: "#d0873e",
+      color: "#fff",
+      "&:hover": { backgroundColor: "#D4A373" },
+      "&.Mui-disabled": {
+          color: "#bbb",
+          backgroundColor: "#e0e0e0",
+        },
+    }}
+    disabled={isDisabled}
+  >
+    <RuleIcon fontSize="small" />
+  </IconButton>
+  </span>
+</Tooltip>
+
+{/* 🔥 INTENT / MEANING FEEDBACK */}
+<Tooltip title="Meaning-based feedback">
+  <span>
+  <IconButton
+  onClick={() => {
+
+  setSelectedFeedbackType("B");
+  markFeedbackViewed("B");
+  setIsFeedbackModalOpen(true);
+}}
+    sx={{
+       borderRadius: "50%",
+       p: 1.5,
+      backgroundColor: "#8cad12",
+      color: "#fff",
+      "&:hover": { backgroundColor: "#99a66a" },
+      "&.Mui-disabled": {
+          color: "#bbb",
+          backgroundColor: "#e0e0e0",
+        },
+    }}
+    disabled={isDisabled}
+  >
+    <PsychologyIcon fontSize="small" />
+  </IconButton>
+  </span>
+</Tooltip>
+<Tooltip title="Answer feedback questions">
+  <span>
+    <IconButton
+     onClick={() => {
+  setRqAnswers({
+    clarity: "",
+    RQ1_confidenceHelp: "",
+    RQ1_blame_pre: "",
+    RQ1_blame_post: "",
+    RQ2_trust: "",
+    RQ2_reliance: "",  
+    RQ2_errorDetection: "",
+    RQ3_fairness: "",
+    RQ3_understanding: "",
+    RQ3_fluencyEffect: "",
+  });
+
+  setShowRQDialog(true);
+}}
+      disabled={!canOpenRQ}
+      sx={{
+        borderRadius: "50%",
+        p: 1.5,
+        backgroundColor: "#6a1b9a",
+        color: "#fff",
+        "&:hover": { backgroundColor: "#4a148c" },
+        "&.Mui-disabled": {
+          backgroundColor: "#e0e0e0",
+          color: "#aaa",
+        },
+      }}
+    >
+      <FeedbackIcon />
+    </IconButton>
+  </span>
+</Tooltip>
                 {/* 🟢 FINISH ROUND BUTTON */}
-                <Tooltip
-                  title={
-                    currentIndex === TOTAL_QUESTIONS - 1
-                      ? userData?.prototype === "A"
-                        ? "Finish Round"
-                        : "End Interview"
-                      : "Complete all questions to proceed"
-                  }
-                >
-                  <span>
-                    <IconButton
-                      onClick={handleFinishRound}
-                      disabled={
-                        isDisabled || currentIndex !== TOTAL_QUESTIONS - 1
-                      }
-                      sx={{
-                        p: 1.5,
-                        borderRadius: "50%",
-                        color:
-                          currentIndex !== TOTAL_QUESTIONS - 1
-                            ? "#ccc"
-                            : "#fff",
-                        backgroundColor:
-                          currentIndex !== TOTAL_QUESTIONS - 1
-                            ? "#e0e0e0"
-                            : userData?.prototype === "A"
-                              ? "#2e7d32" // green for round finish
-                              : "#e53935", // red for final end
-                      }}
-                    >
-                      {userData?.prototype === "A" ? (
-                        <CheckCircleIcon />
-                      ) : (
-                        <CallEndIcon />
-                      )}
-                    </IconButton>
-                  </span>
-                </Tooltip>
-                {/* <Tooltip title="End Interview">
-                  <span>
-                    <IconButton onClick={handleEndInterview} disabled={isDisabled || currentIndex !== TOTAL_QUESTIONS - 1} sx={{ p: 1.5, borderRadius: '50%', color: currentIndex !== TOTAL_QUESTIONS - 1 ? '#ccc' : '#fff', backgroundColor: currentIndex !== TOTAL_QUESTIONS - 1 ? '#e0e0e0' : '#e53935' }}><CallEndIcon fontSize="small" /></IconButton>
-                  </span>
-                </Tooltip> */}
+                <Tooltip title="End Interview">
+  <span>
+    <IconButton
+      onClick={handleFinishRound}
+      disabled={!isFinishEnabled}
+      sx={{
+        p: 1.5,
+        borderRadius: "50%",
+        color: "#fff",
+        backgroundColor: "#e53935",
+
+        "&:hover": {
+          backgroundColor: "#c62828",
+        },
+
+        "&.Mui-disabled": {
+          color: "#bbb",
+          backgroundColor: "#e0e0e0",
+        },
+      }}
+    >
+      <CallEndIcon />
+    </IconButton>
+  </span>
+</Tooltip>
+              
 
                 <FeedbackModal
-                  open={isFeedbackModalOpen}
-                  onClose={() => setIsFeedbackModalOpen(false)}
-                  feedback={feedback}
-                  currentIndex={currentIndex}
-                />
+                open={isFeedbackModalOpen}
+                onClose={() => setIsFeedbackModalOpen(false)}
+                feedback={feedback}
+                currentIndex={currentIndex}
+                selectedType={selectedFeedbackType}
+              />
               </Box>
-              {/* <Dialog open={showEndConfirm}
-    PaperProps={{ sx: { position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: '80%', maxWidth: 600, maxHeight: '80vh', overflowY: 'auto', bgcolor: '#fcfcfc', borderRadius: '10px', boxShadow: 24, p: 4, border: '1px solid #ddd', fontFamily: 'Segoe UI, sans-serif' } }}
-    onClose={() => setShowEndConfirm(false)}
-  >
-    <DialogTitle>
-      {userData?.prototype === "A" ? "Finish Round" : "End Interview"}
-    </DialogTitle>
-
-    <DialogContent>
-      <Typography>
-        {userData?.prototype === "A"
-          ? "You have completed this round. Proceed to the next round?"
-          : "You have completed the interview. Do you want to exit?"}
-      </Typography>
-    </DialogContent>
-
-    <DialogActions>
-      <Button onClick={() => setShowEndConfirm(false)}>Cancel</Button>
-      <Button variant="contained" color="error" onClick={confirmEndInterview}>
-        {userData?.prototype === "A" ? "Next Round" : "Exit"}
-      </Button>
-    </DialogActions>
-  </Dialog> */}
-              {/* 🔴 END INTERVIEW BUTTON */}
-              <Dialog
-                open={showEndFlow}
-                disableEscapeKeyDown
-                PaperProps={{
-                  sx: {
-                    width: "80%",
-                    maxWidth: 600,
-                    borderRadius: "12px",
-                    p: 3,
-                  },
-                }}
-              >
-                <DialogTitle>
-                  {endFlowStep === "confirm"
-                    ? userData?.prototype === "A"
-                      ? "Finish Round"
-                      : "End Interview"
-                    : "Quick Feedback"}
-                </DialogTitle>
-
-                <DialogContent>
-                  {endFlowStep === "confirm" ? (
-                    <Typography>
-                      {userData?.prototype === "A"
-                        ? "You have completed this round. Proceed to next round?"
-                        : "You have completed the interview. Submit and exit?"}
-                    </Typography>
-                  ) : (
-                    <Box
-                      sx={{
-                        mt: 2,
-                        p: 3,
-                        borderRadius: 3,
-                        background: "linear-gradient(145deg, #f5f7fa, #e4ecf7)",
-                        boxShadow: "0 8px 20px rgba(0,0,0,0.05)",
-                      }}
-                    >
-                      <Typography
-                        variant="subtitle1"
-                        sx={{ mb: 2, fontWeight: 600, color: "#07466E" }}
-                      >
-                        Please provide feedback (all fields required)
-                      </Typography>
-
-                      {/* Accuracy */}
-                      <Box sx={{ mb: 3 }}>
-                        <Typography sx={{ mb: 1 }}>Accuracy</Typography>
-                        <RadioGroup
-                          row
-                          value={phaseFeedback.accuracy}
-                          onChange={(e) =>
-                            setPhaseFeedback((p) => ({
-                              ...p,
-                              accuracy: e.target.value,
-                            }))
-                          }
-                        >
-                          {[1, 2, 3, 4, 5].map((n) => (
-                            <FormControlLabel
-                              key={n}
-                              value={String(n)}
-                              control={<Radio />}
-                              label={n}
-                            />
-                          ))}
-                        </RadioGroup>
-                      </Box>
-
-                      {/* Fairness */}
-                      <Box sx={{ mb: 3 }}>
-                        <Typography sx={{ mb: 1 }}>Fairness</Typography>
-                        <RadioGroup
-                          row
-                          value={phaseFeedback.fairness}
-                          onChange={(e) =>
-                            setPhaseFeedback((p) => ({
-                              ...p,
-                              fairness: e.target.value,
-                            }))
-                          }
-                        >
-                          {[1, 2, 3, 4, 5].map((n) => (
-                            <FormControlLabel
-                              key={n}
-                              value={String(n)}
-                              control={<Radio />}
-                              label={n}
-                            />
-                          ))}
-                        </RadioGroup>
-                      </Box>
-
-                      {/* Understanding */}
-                      <Box sx={{ mb: 3 }}>
-                        <Typography sx={{ mb: 1 }}>Understanding</Typography>
-                        <RadioGroup
-                          row
-                          value={phaseFeedback.understanding}
-                          onChange={(e) =>
-                            setPhaseFeedback((p) => ({
-                              ...p,
-                              understanding: e.target.value,
-                            }))
-                          }
-                        >
-                          {[1, 2, 3, 4, 5].map((n) => (
-                            <FormControlLabel
-                              key={n}
-                              value={String(n)}
-                              control={<Radio />}
-                              label={n}
-                            />
-                          ))}
-                        </RadioGroup>
-                      </Box>
-
-                      {/* Blame */}
-                      <Box>
-                        <Typography sx={{ mb: 1 }}>
-                          Who do you think is responsible?
-                        </Typography>
-                        <RadioGroup
-                          value={phaseFeedback.blame}
-                          onChange={(e) =>
-                            setPhaseFeedback((p) => ({
-                              ...p,
-                              blame: e.target.value,
-                            }))
-                          }
-                        >
-                          <FormControlLabel
-                            value="self"
-                            control={<Radio />}
-                            label="Myself"
-                          />
-                          <FormControlLabel
-                            value="system"
-                            control={<Radio />}
-                            label="System"
-                          />
-                          <FormControlLabel
-                            value="unsure"
-                            control={<Radio />}
-                            label="Not sure"
-                          />
-                        </RadioGroup>
-                      </Box>
-                    </Box>
-                  )}
-                </DialogContent>
-
-                <DialogActions>
-                  {endFlowStep === "confirm" ? (
-                    <>
-                      <Button onClick={() => setShowEndFlow(false)}>
-                        Cancel
-                      </Button>
-                      <Button
-                        variant="contained"
-                        onClick={() => setEndFlowStep("feedback")}
-                      >
-                        Continue
-                      </Button>
-                    </>
-                  ) : (
-                    <Button
-                      variant="contained"
-                      onClick={handleSubmitFeedback}
-                      disabled={
-                        !phaseFeedback.accuracy ||
-                        !phaseFeedback.fairness ||
-                        !phaseFeedback.understanding ||
-                        !phaseFeedback.blame
-                      }
-                      sx={{
-                        backgroundColor: "#07466E",
-                        "&:hover": { backgroundColor: "#063655" },
-                        opacity:
-                          !phaseFeedback.accuracy ||
-                            !phaseFeedback.fairness ||
-                            !phaseFeedback.understanding ||
-                            !phaseFeedback.blame
-                            ? 0.5
-                            : 1,
-                      }}
-                    >
-                      Submit
-                    </Button>
-                  )}
-                </DialogActions>
-              </Dialog>
 
               <Dialog
                 open={popup.open}
@@ -1173,6 +1178,7 @@ const InterviewSimulator: React.FC = () => {
                   </Button>
                   {popup.onConfirm && (
                     <Button
+                    sx={{bgcolor: '#c62828'}}
                       variant="contained"
                       onClick={() => {
                         popup.onConfirm?.();
@@ -1184,12 +1190,208 @@ const InterviewSimulator: React.FC = () => {
                   )}
                 </DialogActions>
               </Dialog>
-              {/* {isSwitching && (
-    <Backdrop sx={{ color: "#fff", zIndex: theme.zIndex.drawer + 3 }} open>
-      <CircularProgress color="inherit" />
-      <AIBackdrop open stage="new-round" />
-    </Backdrop>
-  )} */}
+          
+ <Dialog
+  open={showRQDialog}
+  onClose={() => setShowRQDialog(false)}
+  PaperProps={{
+    sx: {
+      borderRadius: "16px",
+      p: 2,
+      width: "90%",
+      maxWidth: 520,
+      background: "linear-gradient(145deg, #f7faff, #edf4fb)",
+      boxShadow: "0 10px 30px rgba(0,0,0,0.08)",
+    },
+  }}
+>
+  <DialogTitle
+    sx={{
+      fontWeight: 600,
+      color: "#07466E",
+      textAlign: "center",
+      pb: 1,
+    }}
+  >
+    Quick Feedback
+  </DialogTitle>
+
+  <DialogContent
+    sx={{
+      display: "flex",
+      flexDirection: "column",
+      gap: 2,
+    }}
+  >
+
+    {/* SECTION CARD */}
+    {[
+  {
+    label: "Which feedback was easier to understand?",
+    key: "clarity",
+    options: [
+      { value: "A", label: "A" },
+      { value: "B", label: "B" },
+    ],
+  },
+
+  // 🔵 RQ1 — Transparency & Blame
+  {
+    label:
+      "Did the highlighted words and confidence score help you understand the feedback?",
+    key: "RQ1_confidenceHelp",
+    options: [
+      { value: "yes", label: "Yes" },
+      { value: "no", label: "No" },
+    ],
+  },
+  {
+    label:
+      "Before considering the highlighted words and confidence score, if a feedback seemed wrong, who would you blame?",
+    key: "RQ1_blame_pre",
+    options: [
+      { value: "system", label: "System" },
+      { value: "me", label: "My answer" },
+      { value: "unsure", label: "Not sure" },
+    ],
+  },
+  {
+    label:
+      "After seeing the highlighted words and confidence score, who do you think caused the issue?",
+    key: "RQ1_blame_post",
+    options: [
+      { value: "system", label: "System" },
+      { value: "me", label: "My answer" },
+      { value: "unsure", label: "Not sure" },
+    ],
+  },
+
+  // 🟡 RQ2
+  {
+    label: "Which feedback do you trust more?",
+    key: "RQ2_trust",
+    options: [
+      { value: "A", label: "A" },
+      { value: "B", label: "B" },
+    ],
+  },
+  {
+    label: "Which feedback would you actually follow to improve your answer?",
+    key: "RQ2_reliance",
+    options: [
+      { value: "A", label: "A" },
+      { value: "B", label: "B" },
+    ],
+  },
+  {
+    label: "Which feedback (if any) do you believe was incorrect?",
+    key: "RQ2_errorDetection",
+    options: [
+      { value: "A", label: "A" },
+      { value: "B", label: "B" },
+      { value: "both", label: "Both" },
+      { value: "none", label: "None" },
+    ],
+  },
+
+  // 🔴 RQ3
+  {
+    label: "Which feedback felt more fair?",
+    key: "RQ3_fairness",
+    options: [
+      { value: "A", label: "A" },
+      { value: "B", label: "B" },
+    ],
+  },
+  {
+    label: "Which feedback understood your answer better?",
+    key: "RQ3_understanding",
+    options: [
+      { value: "A", label: "A" },
+      { value: "B", label: "B" },
+    ],
+  },
+  {
+    label:
+     "Did any feedback judge your answer based on wording rather than meaning?",
+    key: "RQ3_fluencyEffect",
+    options: [
+      { value: "yes", label: "Yes" },
+      { value: "no", label: "No" },
+    ],
+  },
+].map((q) => (
+      <Box
+        key={q.key}
+        sx={{
+          p: 1.5,
+          borderRadius: 3,
+          backgroundColor: "#ffffffcc",
+          border: "1px solid #e3ecf5",
+        }}
+      >
+        <Typography
+          sx={{
+            fontSize: "0.9rem",
+            fontWeight: 500,
+            mb: 1,
+            color: "#333",
+          }}
+        >
+          {q.label}
+        </Typography>
+
+        <RadioGroup
+          row
+          value={(rqAnswers as any)[q.key]}
+          onChange={(e) =>
+            setRqAnswers((prev) => ({
+              ...prev,
+              [q.key]: e.target.value,
+            }))
+          }
+        >
+          {q.options.map((opt) => (
+            <FormControlLabel
+              key={opt.value}
+              value={opt.value}
+              control={<Radio size="small" />}
+              label={opt.label}
+              sx={{
+                mr: 2,
+                "& .MuiFormControlLabel-label": {
+                  fontSize: "0.85rem",
+                },
+              }}
+            />
+          ))}
+        </RadioGroup>
+      </Box>
+    ))}
+
+  </DialogContent>
+
+  <DialogActions sx={{ justifyContent: "center", pb: 2 }}>
+    <Button
+  onClick={handleRQSubmit}
+  disabled={isSubmittingRQ}
+      variant="contained"
+      sx={{
+        px: 4,
+        py: 1,
+        borderRadius: "18px",
+        textTransform: "none",
+        fontWeight: 500,
+        backgroundColor: "#07466E",
+        "&:hover": {
+          backgroundColor: "#063655",
+        },
+      }}
+    >
+      Save Feedback
+    </Button>
+  </DialogActions>
+</Dialog>
             </>
           )}
         </Container>

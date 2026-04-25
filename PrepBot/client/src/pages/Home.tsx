@@ -12,7 +12,7 @@ const Home = () => {
   const navigate = useNavigate();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
-  const [language, setLanguage] = useState("non-native");
+  const [language, setLanguage] = useState("not-fluent");
   const [existingSession, setExistingSession] = useState<any>(null);
 
   const [isStarting, setIsStarting] = useState(false); // ✅ loader
@@ -47,7 +47,7 @@ const Home = () => {
         setExistingSession(parsed);
         setName(parsed.name || "");
         setEmail(parsed.email || "");
-        setLanguage(parsed.language || "non-native");
+        setLanguage(parsed.language || "not-fluent");
       })
       .catch(() => {
         localStorage.removeItem("userData");
@@ -139,7 +139,7 @@ const Home = () => {
   setExistingSession(null);
   setName("");
   setEmail("");
-  setLanguage("non-native");
+  setLanguage("not-fluent");
 
   // 🔥 DELAY so loader is visible
   setTimeout(() => {
@@ -190,8 +190,8 @@ if (isCheckingSession) {
               onChange={(e) => setLanguage(e.target.value)}
               fullWidth
             >
-              <MenuItem value="native">Native Speaker</MenuItem>
-              <MenuItem value="non-native">Non-Native Speaker</MenuItem>
+              <MenuItem value="fluent">Fluent Speaker</MenuItem>
+              <MenuItem value="not-fluent">Not Fluent Speaker</MenuItem>
             </TextField>
           </Box>
         )}
