@@ -126,7 +126,7 @@ export default function FeedbackModal({
                 variant="body2"
                 sx={{ mb: 2, color: "#666" }}
               >
-                Transcription Confidence: {(current.confidence * 100).toFixed(0)}%
+                Transcription Confidence: {(current.confidence * 100).toFixed(0)}% (some words may be incorrect)
               </Typography>
             )}
 

@@ -162,8 +162,8 @@ if (isCheckingSession) {
       </Box>
 
       <Box flex={1} sx={{ display: "flex", flexDirection: "column", justifyContent: "center", gap: 3 }}>
-        <Typography variant="h2" sx={{ color: "#07466E" }}>Welcome to PrepBot</Typography>
-        <Typography variant="subtitle1" sx={{fontStyle: "italic"}}>Practice like it’s real. Improve like a pro.</Typography>
+        <Typography variant="h2" sx={{ color: "#07466E" }}>PrepBot</Typography>
+        <Typography variant="subtitle1" sx={{fontStyle: "italic"}}>See how AI judges you, clearly</Typography> 
 
         {!existingSession && (
           <Box

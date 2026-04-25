@@ -429,7 +429,7 @@ setCurrentIndex(safeIndex);
   answer: resData.transcript,
   confidence: resData.confidence,
   lowConfidenceRatio: resData.lowConfidenceRatio || 0,
-  sessionConditions: sessionConditions || [],
+  sessionConditions: sessionConditions.length ? sessionConditions : undefined,
   currentIndex,
 });
 
@@ -446,6 +446,13 @@ if (evaluation?.sessionConditions) {
       // =========================
       // 🔹 SAVE TO BACKEND
       // =========================
+
+      if (!feedbackA || !feedbackB) {
+        setIsLoading(false);
+        setProcessingStage("idle");
+        return;
+      }
+
       await fetchJSON(`${API_URL}/api/session/answer`, {
         userData,
         question,
@@ -799,6 +806,7 @@ const handleRQSubmit = async () => {
       });
     }
     else {
+      console.warn("Invalid feedback state, not marking viewed");
       return;
     }
   } catch (err) {
@@ -1232,6 +1240,8 @@ const handleRQSubmit = async () => {
     options: [
       { value: "A", label: "A" },
       { value: "B", label: "B" },
+      { value: "both", label: "Both" },
+{ value: "none", label: "None" }
     ],
   },
 
@@ -1273,6 +1283,8 @@ const handleRQSubmit = async () => {
     options: [
       { value: "A", label: "A" },
       { value: "B", label: "B" },
+      { value: "both", label: "Both" },
+{ value: "none", label: "None" }
     ],
   },
   {
@@ -1281,6 +1293,8 @@ const handleRQSubmit = async () => {
     options: [
       { value: "A", label: "A" },
       { value: "B", label: "B" },
+      { value: "both", label: "Both" },
+{ value: "none", label: "None" }
     ],
   },
   {
@@ -1301,6 +1315,8 @@ const handleRQSubmit = async () => {
     options: [
       { value: "A", label: "A" },
       { value: "B", label: "B" },
+      { value: "both", label: "Both" },
+{ value: "none", label: "None" }
     ],
   },
   {
@@ -1309,6 +1325,8 @@ const handleRQSubmit = async () => {
     options: [
       { value: "A", label: "A" },
       { value: "B", label: "B" },
+      { value: "both", label: "Both" },
+{ value: "none", label: "None" }
     ],
   },
   {
