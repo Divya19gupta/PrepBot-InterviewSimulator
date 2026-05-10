@@ -5,6 +5,7 @@ const router = express.Router();
 
 const client = new AssemblyAI({
   apiKey: process.env.ASSEMBLY_API_KEY!,
+  baseUrl: "https://api.eu.assemblyai.com",
 });
 
 router.post("/", async (req, res) => {
