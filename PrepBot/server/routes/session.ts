@@ -316,4 +316,37 @@ router.post("/update-index", async (req, res) => {
   }
 });
 
+router.post("/complete", async (req, res) => {
+  try {
+    const { sessionId } = req.body;
+
+    if (!sessionId) {
+      res.status(400).json({
+        error: "Missing sessionId",
+      });
+      return;
+    }
+
+    await prisma.session.update({
+    where: {
+      id: sessionId,
+    },
+    data: {
+      status: "complete",
+    },
+  });
+
+    res.json({
+      success: true,
+    });
+
+  } catch (err) {
+    console.error("❌ Complete session error:", err);
+
+    res.status(500).json({
+      error: "Failed to complete session",
+    });
+  }
+});
+
 export default router;

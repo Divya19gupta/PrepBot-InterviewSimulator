@@ -26,7 +26,7 @@ const router = express.Router();
 // ✅ Static questions (NO API CALL)
 const questions = [
   // Q1 — Technical articulation (terminology + clarity vs intent)
-  "Explain a project where you used specific technologies like React, Node, or APIs. What exactly did you build and how did the system work end-to-end?",
+  "Describe a project or piece of work you completed using any tools, methods, or systems you had to learn. What did you build or produce, and how did the different parts of your work connect together?",
 
   // Q2 — Structured storytelling (behavioral + sequencing)
   "Describe a challenging situation you faced in a project. Walk me through what happened step by step and how you handled it until the final outcome.",
