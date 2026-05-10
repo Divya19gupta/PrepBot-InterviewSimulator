@@ -137,7 +137,8 @@ const canOpenRQ =
   hasFeedback &&
   viewedA &&
   viewedB &&
-  !isLocked;
+  !isLocked &&
+  !recording;
 
 const isNextEnabled =
   hasAnswer &&
@@ -323,7 +324,7 @@ setCurrentIndex(safeIndex);
     return;
   }
 
-  const attempt = attempts[index];
+ const attempt = attempts[currentIndex] + 1;
 
   const fetchJSON = async (url: string, body: any, timeout = 20000) => {
     const controller = new AbortController();
@@ -739,19 +740,21 @@ const handleRQSubmit = async () => {
     // 🔥 allow UI to render loader
     await new Promise((r) => setTimeout(r, 50));
 
-    await fetch(`${API_URL}/api/session/complete`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        sessionId: userData.sessionId,
-      }),
-    });
+    const res = await fetch(`${API_URL}/api/session/complete`, {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({
+    sessionId: userData.sessionId,
+  }),
+});
 
-    localStorage.removeItem("userData");
-
-    navigate("/", { replace: true });
+if (!res.ok) {
+  throw new Error("Failed to complete interview");
+}
+localStorage.removeItem("userData");
+navigate("/", { replace: true });
   } catch (err) {
     console.error(err);
     toast.error("Failed to finish interview");
@@ -1234,21 +1237,11 @@ const handleRQSubmit = async () => {
 
     {/* SECTION CARD */}
     {[
-  {
-    label: "Which feedback was easier to understand?",
-    key: "clarity",
-    options: [
-      { value: "A", label: "A" },
-      { value: "B", label: "B" },
-      { value: "both", label: "Both" },
-{ value: "none", label: "None" }
-    ],
-  },
 
   // 🔵 RQ1 — Transparency & Blame
   {
     label:
-      "Did the highlighted words and confidence score help you understand the feedback?",
+      "Did the highlighted words and confidence score change how you interpreted the feedback?",
     key: "RQ1_confidenceHelp",
     options: [
       { value: "yes", label: "Yes" },
@@ -1331,11 +1324,21 @@ const handleRQSubmit = async () => {
   },
   {
     label:
-     "Did any feedback judge your answer based on wording rather than meaning?",
+     "Did any feedback seem to judge how you said something rather than what you meant?",
     key: "RQ3_fluencyEffect",
     options: [
       { value: "yes", label: "Yes" },
       { value: "no", label: "No" },
+    ],
+  },
+  {
+    label: "Overall, which feedback was clearer to read?",
+    key: "clarity",
+    options: [
+      { value: "A", label: "A" },
+      { value: "B", label: "B" },
+      { value: "both", label: "Both" },
+{ value: "none", label: "None" }
     ],
   },
 ].map((q) => (
