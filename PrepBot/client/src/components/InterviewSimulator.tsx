@@ -419,6 +419,7 @@ setCurrentIndex(safeIndex);
       // =========================
       setTranscript(resData.transcript);
       setLowConfidenceWords(resData.lowConfidenceWords || []);
+      const assemblyTranscriptId = resData.transcriptId || null;
 
       // =========================
       // 🔹 EVALUATE (ONLY ONCE)
@@ -459,6 +460,7 @@ if (evaluation?.sessionConditions) {
         question,
         questionIndex: index,
         transcript: resData.transcript,
+        assemblyTranscriptId,
         feedbackA,
         feedbackB,
         wrongFeedbackType,
