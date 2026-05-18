@@ -16,12 +16,12 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-// app.use(cors({
-//   origin: process.env.FRONTEND_URL || "https://prepbot-interview-simulator.vercel.app"
-// }));
 app.use(cors({
-  origin: '*'
-})); // Allow all origins for development; restrict in production
+  origin: process.env.FRONTEND_URL || "https://prepbot-interview-simulator.vercel.app"
+}));
+// app.use(cors({
+//   origin: '*'
+// })); 
 app.use(bodyParser.json({ limit: "10mb" }));
 
 // ✅ DEBUG LOG to verify type
