@@ -1,5 +1,6 @@
 import express from "express";
 import { AssemblyAI } from "assemblyai";
+import { prisma } from "../db";
 
 const router = express.Router();
 
@@ -12,7 +13,6 @@ router.post("/", async (req, res) => {
   try {
     const audioBase64 = req.body.audioBase64;
 
-    // 🔴 VALIDATION
     if (!audioBase64 || !audioBase64.includes("base64")) {
       res.status(400).json({ error: "Invalid audio data" });
       return;
@@ -27,110 +27,84 @@ router.post("/", async (req, res) => {
 
     const buffer = Buffer.from(base64Data, "base64");
 
-    // 🔹 UPLOAD
     const uploadResponse = await client.files.upload(buffer);
 
-    // 🔹 TRANSCRIBE
     const transcriptData = await client.transcripts.transcribe({
       audio_url: uploadResponse,
       speech_models: ["universal"],
     });
 
-    // 🔴 LANGUAGE FILTER
-    if (
-      transcriptData.language_code &&
-      transcriptData.language_code !== "en"
-    ) {
+    if (transcriptData.language_code && transcriptData.language_code !== "en") {
       res.json({
         transcript: "",
         error: "NON_ENGLISH",
       });
       return;
     }
-
-    // ✅ EXTRACT WORDS
     const words = transcriptData.words || [];
+    const avgConfidence =
+      words.length > 0
+        ? words.reduce((sum: number, w: any) => sum + (w.confidence || 0), 0) /
+          words.length
+        : null;
 
-    // // ✅ NORMALIZE FUNCTION
-    // const normalize = (text: string) =>
-    //   text.toLowerCase().replace(/[.,!?]/g, "");
+    const LOW_CONF_THRESHOLD = 0.92;
 
-   // ==========================
-// ✅ CONFIDENCE CALCULATION (RESEARCH-BACKED CALIBRATION)
-// ==========================
+    const lowConfidenceRaw = words.filter(
+      (w: any) => (w.confidence || 0) < LOW_CONF_THRESHOLD,
+    );
 
-// 🔹 AVG CONFIDENCE (global signal)
-const avgConfidence =
-  words.length > 0
-    ? words.reduce(
-        (sum: number, w: any) => sum + (w.confidence || 0),
-        0
-      ) / words.length
-    : null;
+    const normalize = (text: string) =>
+      text.toLowerCase().replace(/[.,!?]/g, "");
 
-// 🔹 LOW CONFIDENCE THRESHOLD (standard ASR practice ~0.9–0.92)
-const LOW_CONF_THRESHOLD = 0.92;
+    const lowConfidenceWords = lowConfidenceRaw.map((w: any) =>
+      normalize(w.text),
+    );
 
-// 🔹 LOW CONFIDENCE WORDS
-const lowConfidenceRaw = words.filter(
-  (w: any) => (w.confidence || 0) < LOW_CONF_THRESHOLD
-);
+    const lowConfidenceRatio =
+      words.length > 0 ? lowConfidenceRaw.length / words.length : 0;
+    const alpha = 0.7;
+    const beta = 0.3;
 
-// 🔹 LOW CONFIDENCE WORDS (normalized for UI)
-const normalize = (text: string) =>
-  text.toLowerCase().replace(/[.,!?]/g, "");
+    let calibratedConfidence: number | null = null;
 
-const lowConfidenceWords = lowConfidenceRaw.map((w: any) =>
-  normalize(w.text)
-);
+    if (avgConfidence !== null) {
+      calibratedConfidence =
+        avgConfidence * alpha + (1 - lowConfidenceRatio) * beta;
+    }
 
-// 🔹 LOW CONFIDENCE RATIO (local uncertainty signal)
-const lowConfidenceRatio =
-  words.length > 0
-    ? lowConfidenceRaw.length / words.length
-    : 0;
+    console.log("Transcript:", transcriptData.text);
+    console.log("Avg Confidence:", avgConfidence);
+    console.log("Low Confidence Ratio:", lowConfidenceRatio);
+    console.log("Calibrated Confidence:", calibratedConfidence);
 
-// ==========================
-// 🔥 CALIBRATED CONFIDENCE
-// ==========================
+    try {
+      await fetch(
+        `https://api.eu.assemblyai.com/v2/transcript/${transcriptData.id}`,
+        {
+          method: "DELETE",
+          headers: {
+            Authorization: process.env.ASSEMBLY_API_KEY!,
+          },
+        },
+      );
+      console.log(`✅ AssemblyAI transcript deleted: ${transcriptData.id}`);
+    } catch (err) {
+      // Non-fatal: EU servers auto-delete audio within 24-48h anyway
+      console.error(
+        `⚠️ Failed to delete AssemblyAI transcript ${transcriptData.id}:`,
+        err,
+      );
+    }
 
-// weights (sum = 1)
-// grounded in combining global + local uncertainty
-const alpha = 0.7; // global confidence weight
-const beta = 0.3;  // local stability weight
-
-let calibratedConfidence: number | null = null;
-
-if (avgConfidence !== null) {
-  calibratedConfidence =
-    avgConfidence * alpha +
-    (1 - lowConfidenceRatio) * beta;
-}
-
-// ==========================
-// 🔍 DEBUG (optional)
-// ==========================
-console.log("Transcript:", transcriptData.text);
-console.log("Avg Confidence:", avgConfidence);
-console.log("Low Confidence Ratio:", lowConfidenceRatio);
-console.log("Calibrated Confidence:", calibratedConfidence);
-
-// ==========================
-// ✅ FINAL RESPONSE
-// ==========================
-res.json({
-  transcript: transcriptData.text || "",
-
-  // 🔥 USE THIS IN UI
-  confidence: calibratedConfidence,
-
-  // 🔹 keep raw for research/debug
-  rawConfidence: avgConfidence,
-
-  lowConfidenceWords,
-  lowConfidenceRatio,
-});
-
+    res.json({
+      transcript: transcriptData.text || "",
+      transcriptId: transcriptData.id,
+      confidence: calibratedConfidence,
+      rawConfidence: avgConfidence,
+      lowConfidenceWords,
+      lowConfidenceRatio,
+    });
   } catch (error) {
     console.error("AssemblyAI error:", error);
 

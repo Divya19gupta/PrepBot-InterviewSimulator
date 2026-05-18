@@ -7,9 +7,6 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY!,
 });
 
-// ==========================
-// ✅ CORRECT FEEDBACK (A vs B)
-// ==========================
 export async function evaluateAnswer(
   question: string,
   answer: string,

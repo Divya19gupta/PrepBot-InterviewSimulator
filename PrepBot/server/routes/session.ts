@@ -83,6 +83,7 @@ router.post("/answer", async (req, res) => {
     },
     update: {
       transcript,
+      assemblyTranscriptId: req.body.assemblyTranscriptId,
       feedbackA,
       feedbackB,
       wrongFeedbackType,
@@ -97,8 +98,9 @@ router.post("/answer", async (req, res) => {
     create: {
       sessionId: userData.sessionId,
       questionIndex,
-      question, // optional
+      question, 
       transcript,
+      assemblyTranscriptId: req.body.assemblyTranscriptId,
       feedbackA,
       feedbackB,
       wrongFeedbackType,
@@ -327,6 +329,7 @@ router.post("/complete", async (req, res) => {
       return;
     }
 
+    
     await prisma.session.update({
     where: {
       id: sessionId,

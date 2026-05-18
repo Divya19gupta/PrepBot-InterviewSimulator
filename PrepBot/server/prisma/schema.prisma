@@ -27,6 +27,7 @@ model Answer {
   question  String
 
   transcript String?
+  assemblyTranscriptId  String?
 
   // 🔥 SYSTEM OUTPUT
   feedbackA String?
