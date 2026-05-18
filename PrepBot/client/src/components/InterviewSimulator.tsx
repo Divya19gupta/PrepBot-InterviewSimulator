@@ -152,6 +152,7 @@ const isFinishEnabled =
 
 const [isInitialLoading, setIsInitialLoading] = useState(true);
 const [isSubmittingRQ, setIsSubmittingRQ] = useState(false);
+const [showDebriefing, setShowDebriefing] = useState(false);
 
   // ----------------- CLEANUP -----------------
 
@@ -735,35 +736,33 @@ const handleRQSubmit = async () => {
     title: "End Interview",
     message: "Are you sure you want to end the interview?",
     confirmText: "End",
-    onConfirm: async () => {
+  onConfirm: async () => {
   try {
     setGlobalStage("submitting");
-
-    // 🔥 allow UI to render loader
     await new Promise((r) => setTimeout(r, 50));
 
     const res = await fetch(`${API_URL}/api/session/complete`, {
-  method: "POST",
-  headers: {
-    "Content-Type": "application/json",
-  },
-  body: JSON.stringify({
-    sessionId: userData.sessionId,
-  }),
-});
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ sessionId: userData.sessionId }),
+    });
 
-if (!res.ok) {
-  throw new Error("Failed to complete interview");
-}
-localStorage.removeItem("userData");
-navigate("/", { replace: true });
+    if (!res.ok) throw new Error("Failed to complete interview");
+
+    localStorage.removeItem("userData");
+
+    // 🔥 Show debriefing BEFORE navigating
+    setGlobalStage(null);
+
+    setGlobalStage(null);
+    setShowDebriefing(true);
+
   } catch (err) {
     console.error(err);
     toast.error("Failed to finish interview");
-  } finally {
     setGlobalStage(null);
   }
-}
+},
   });
 };
 
@@ -1412,6 +1411,54 @@ navigate("/", { replace: true });
       }}
     >
       Save Feedback
+    </Button>
+  </DialogActions>
+</Dialog>
+<Dialog
+  open={showDebriefing}
+  PaperProps={{
+    sx: {
+      borderRadius: "16px",
+      p: 3,
+      width: "90%",
+      maxWidth: 520,
+      background: "linear-gradient(145deg, #f7faff, #edf4fb)",
+      boxShadow: "0 10px 30px rgba(0,0,0,0.08)",
+    },
+  }}
+>
+  <DialogTitle sx={{ fontWeight: 600, color: "#07466E", textAlign: "center" }}>
+    Study Debrief
+  </DialogTitle>
+  <DialogContent>
+    <Typography sx={{ fontSize: "0.95rem", color: "#333", lineHeight: 1.7 }}>
+  Thank you for completing the session. We can now inform you that during the
+  study, one of the two feedback items for some questions may have contained a
+  subtle evaluative error introduced by the researcher. This was necessary
+  because informing participants in advance could have influenced responses and
+  affected the study results.
+  <br /><br />
+  Your data will be used solely for research purposes. If, after learning this
+  information, you would prefer to withdraw your participation or request
+  deletion of your data, or have any questions you may contact the researcher.
+  </Typography>
+  </DialogContent>
+  <DialogActions sx={{ justifyContent: "center", pb: 1 }}>
+    <Button
+      variant="contained"
+      onClick={() => {
+        setShowDebriefing(false);
+        navigate("/", { replace: true });
+      }}
+      sx={{
+        px: 4,
+        borderRadius: "18px",
+        textTransform: "none",
+        backgroundColor: "#07466E",
+        "&:hover": { backgroundColor: "#063655" },
+      }}
+    >
+      OK
     </Button>
   </DialogActions>
 </Dialog>
