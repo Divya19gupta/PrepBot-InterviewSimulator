@@ -1,6 +1,5 @@
 import express from "express";
 import { AssemblyAI } from "assemblyai";
-import { prisma } from "../db";
 
 const router = express.Router();
 
@@ -88,11 +87,10 @@ router.post("/", async (req, res) => {
           },
         },
       );
-      console.log(`✅ AssemblyAI transcript deleted: ${transcriptData.id}`);
+      console.log(`AssemblyAI transcript deleted: ${transcriptData.id}`);
     } catch (err) {
-      // Non-fatal: EU servers auto-delete audio within 24-48h anyway
       console.error(
-        `⚠️ Failed to delete AssemblyAI transcript ${transcriptData.id}:`,
+        `Failed to delete AssemblyAI transcript ${transcriptData.id}:`,
         err,
       );
     }

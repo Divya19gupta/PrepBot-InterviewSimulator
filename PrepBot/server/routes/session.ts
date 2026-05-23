@@ -4,9 +4,6 @@ import { supabase } from "../supabaseClient";
 
 const router = express.Router();
 
-// =======================
-// ✅ SAVE ANSWER
-// =======================
 router.post("/answer", async (req, res) => {
   let filePath: string | null = null;
   let uploaded = false;
@@ -35,7 +32,7 @@ router.post("/answer", async (req, res) => {
     }
     const existingAnswer = await prisma.answer.findUnique({
       where: {
-       sessionId_questionIndex: {
+        sessionId_questionIndex: {
           sessionId: userData.sessionId,
           questionIndex,
         },
@@ -57,66 +54,64 @@ router.post("/answer", async (req, res) => {
 
     const buffer = Buffer.from(base64Parts[1], "base64");
 
-    // const safeQuestion = question.replace(/[^a-zA-Z0-9]/g, "_").slice(0, 30);
     const fileName = `Q_${questionIndex}.webm`;
 
-     filePath = `${userData.sessionId}/${fileName}`;
+    filePath = `${userData.sessionId}/${fileName}`;
 
     const { error: uploadError } = await supabase.storage
       .from("interview-audios")
       .upload(filePath, buffer, {
         contentType: "audio/webm",
-        upsert: true, // 🔥 OVERWRITE instead of new file
+        upsert: true,
       });
 
     if (uploadError) throw new Error(uploadError.message);
 
     uploaded = true;
 
-    // 🔥 UPSERT ANSWER
     await prisma.answer.upsert({
-    where: {
-      sessionId_questionIndex: {
+      where: {
+        sessionId_questionIndex: {
+          sessionId: userData.sessionId,
+          questionIndex,
+        },
+      },
+      update: {
+        transcript,
+        assemblyTranscriptId: req.body.assemblyTranscriptId,
+        feedbackA,
+        feedbackB,
+        wrongFeedbackType,
+        wrongErrorType,
+        wrongExplanation,
+        attempts: recordingAttempts ?? 1,
+        audioFile: filePath,
+        confidence,
+        lowConfidenceWords,
+        lowConfidenceRatio,
+      },
+      create: {
         sessionId: userData.sessionId,
         questionIndex,
+        question,
+        transcript,
+        assemblyTranscriptId: req.body.assemblyTranscriptId,
+        feedbackA,
+        feedbackB,
+        wrongFeedbackType,
+        wrongErrorType,
+        wrongExplanation,
+        attempts: recordingAttempts ?? 1,
+        audioFile: filePath,
+        confidence,
+        lowConfidenceWords,
+        lowConfidenceRatio,
       },
-    },
-    update: {
-      transcript,
-      assemblyTranscriptId: req.body.assemblyTranscriptId,
-      feedbackA,
-      feedbackB,
-      wrongFeedbackType,
-      wrongErrorType,
-      wrongExplanation,
-      attempts: recordingAttempts ?? 1,
-      audioFile: filePath,
-      confidence,
-      lowConfidenceWords,
-      lowConfidenceRatio,
-    },
-    create: {
-      sessionId: userData.sessionId,
-      questionIndex,
-      question, 
-      transcript,
-      assemblyTranscriptId: req.body.assemblyTranscriptId,
-      feedbackA,
-      feedbackB,
-      wrongFeedbackType,
-      wrongErrorType,
-      wrongExplanation,
-      attempts: recordingAttempts ?? 1,
-      audioFile: filePath,
-      confidence,
-      lowConfidenceWords,
-      lowConfidenceRatio,
-    },
-  });
+    });
 
     res.json({ success: true });
   } catch (err: any) {
-    console.error("❌ SAVE ERROR:", err);
+    console.error("SAVE ERROR:", err);
 
     if (uploaded && filePath) {
       await supabase.storage.from("interview-audios").remove([filePath]);
@@ -126,25 +121,19 @@ router.post("/answer", async (req, res) => {
   }
 });
 
-// =======================
-// ✅ SAVE USER FEEDBACK (RQ DATA)
-// =======================
 router.post("/answer/feedback", async (req, res) => {
   try {
     const {
       sessionId,
       questionIndex,
-      trustChoice,
-      relianceChoice,
-      fairnessChoice,
       blameTarget,
-      confidenceUsed,
-
-      // 🔥 ADD THESE
-      clarity,
+      reengageIntent,
+      trustChoice,
       trustReason,
-      understanding,
+      selfCompetence,
+      uncertaintyBuffer,
       bias,
+      clarity,
     } = req.body;
 
     await prisma.answer.update({
@@ -155,35 +144,24 @@ router.post("/answer/feedback", async (req, res) => {
         },
       },
       data: {
-        // 🔵 RQ1
-        confidenceUsed,
         blameTarget,
-
-        // 🟡 RQ2
+        reengageIntent,
         trustChoice,
-        relianceChoice,
         trustReason,
-
-        // 🔴 RQ3
-        fairnessChoice,
-        understanding,
+        selfCompetence,
+        uncertaintyBuffer,
         bias,
-
-        // control
         clarity,
       },
     });
 
     res.json({ success: true });
   } catch (err) {
-    console.error("❌ Feedback save error:", err);
+    console.error("Feedback save error:", err);
     res.status(500).json({ error: "Failed to save feedback" });
   }
 });
 
-// =======================
-// ✅ START SESSION
-// =======================
 router.post("/start", async (req, res) => {
   try {
     const { userData } = req.body;
@@ -192,8 +170,7 @@ router.post("/start", async (req, res) => {
       data: {
         id: userData.sessionId,
         userId: userData.userId,
-        name: userData.name,
-        email: userData.email,
+        participantId: userData.participantId,
         language: userData.language || "en",
       },
     });
@@ -204,9 +181,6 @@ router.post("/start", async (req, res) => {
   }
 });
 
-// =======================
-// ✅ RESUME SESSION
-// =======================
 router.get("/resume/:sessionId", async (req, res) => {
   try {
     const session = await prisma.session.findUnique({
@@ -225,21 +199,14 @@ router.get("/resume/:sessionId", async (req, res) => {
   }
 });
 
-// =======================
-// ✅ DELETE SESSION
-// =======================
 router.post("/delete", async (req, res) => {
   try {
     const { sessionId } = req.body;
 
     if (!sessionId) {
-       res.status(400).json({ error: "Missing sessionId" });
-       return;
+      res.status(400).json({ error: "Missing sessionId" });
+      return;
     }
-
-    // =========================
-    // 🔥 STEP 1: FETCH ALL AUDIO FILE PATHS
-    // =========================
     const answers = await prisma.answer.findMany({
       where: { sessionId },
       select: { audioFile: true },
@@ -249,24 +216,18 @@ router.post("/delete", async (req, res) => {
       .map((a: any) => a.audioFile)
       .filter((p: any): p is string => !!p);
 
-    // =========================
-    // 🔥 STEP 2: DELETE FROM SUPABASE STORAGE
-    // =========================
-   if (filePaths.length > 0) {
-  const { error: deleteError } = await supabase.storage
-    .from("interview-audios")
-    .remove(filePaths);
+    if (filePaths.length > 0) {
+      const { error: deleteError } = await supabase.storage
+        .from("interview-audios")
+        .remove(filePaths);
 
-  if (deleteError) {
-    console.error("❌ Supabase delete error:", deleteError.message);
-  } else {
-    console.log("✅ Deleted files:", filePaths);
-  }
-}
+      if (deleteError) {
+        console.error("Supabase delete error:", deleteError.message);
+      } else {
+        console.log("Deleted files:", filePaths);
+      }
+    }
 
-    // =========================
-    // 🔥 STEP 3: DELETE DB RECORDS
-    // =========================
     await prisma.$transaction([
       prisma.answer.deleteMany({ where: { sessionId } }),
       prisma.session.delete({ where: { id: sessionId } }),
@@ -275,33 +236,39 @@ router.post("/delete", async (req, res) => {
     res.json({ success: true });
 
   } catch (err) {
-    console.error("❌ Delete failed:", err);
+    console.error("Delete failed:", err);
     res.status(500).json({ error: "Delete failed" });
   }
 });
 
 router.post("/viewed", async (req, res) => {
-  const { sessionId, questionIndex, type } = req.body;
+  try {
+    const { sessionId, questionIndex, type } = req.body;
 
-  await prisma.answer.update({
-    where: {
-      sessionId_questionIndex: { sessionId, questionIndex },
-    },
-    data:
-      type === "A"
-        ? { viewedFeedbackA: true }
-        : { viewedFeedbackB: true },
-  });
+    await prisma.answer.update({
+      where: {
+        sessionId_questionIndex: { sessionId, questionIndex },
+      },
+      data:
+        type === "A"
+          ? { viewedFeedbackA: true }
+          : { viewedFeedbackB: true },
+    });
 
-  res.json({ success: true });
+    res.json({ success: true });
+  }
+  catch (err) {
+    console.error("Viewed update failed:", err);
+    res.status(500).json({ error: "Failed to update viewed status" });
+  };
 });
 router.post("/update-index", async (req, res) => {
   try {
     const { sessionId, questionIndex } = req.body;
 
     if (!sessionId) {
-       res.status(400).json({ error: "Missing sessionId" });
-       return;
+      res.status(400).json({ error: "Missing sessionId" });
+      return;
     }
 
     await prisma.session.update({
@@ -312,7 +279,7 @@ router.post("/update-index", async (req, res) => {
     res.json({ success: true });
     return;
   } catch (err) {
-    console.error("❌ Index update failed:", err);
+    console.error("Index update failed:", err);
     res.status(500).json({ error: "Failed to update index" });
     return;
   }
@@ -329,22 +296,22 @@ router.post("/complete", async (req, res) => {
       return;
     }
 
-    
+
     await prisma.session.update({
-    where: {
-      id: sessionId,
-    },
-    data: {
-      status: "complete",
-    },
-  });
+      where: {
+        id: sessionId,
+      },
+      data: {
+        status: "complete",
+      },
+    });
 
     res.json({
       success: true,
     });
 
   } catch (err) {
-    console.error("❌ Complete session error:", err);
+    console.error("Complete session error:", err);
 
     res.status(500).json({
       error: "Failed to complete session",

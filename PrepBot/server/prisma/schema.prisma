@@ -11,8 +11,7 @@ model Session {
   id           String   @id
   currentIndex Int      @default(0)
   userId       String
-  name         String
-  email        String
+  participantId String  @unique
   language     String
   status       String   @default("in_progress")
 
@@ -29,31 +28,25 @@ model Answer {
   transcript String?
   assemblyTranscriptId  String?
 
-  // 🔥 SYSTEM OUTPUT
   feedbackA String?
   feedbackB String?
   wrongFeedbackType String?
   wrongErrorType   String?
   wrongExplanation String?
 
-  // 🔥 USER STUDY DATA
   trustChoice    String?
-  relianceChoice String?
-  fairnessChoice String?
   blameTarget    String?
-  confidenceUsed Boolean?
 
-  // 🔥 ADD THESE (CRITICAL FOR RQs)
   clarity       String?
-  understanding String?
   bias          String?
   trustReason   String?
+  reengageIntent    String?
+  selfCompetence    String?
+  uncertaintyBuffer String?
 
-  // 🔥 AUDIO + ATTEMPTS
   audioFile String
   attempts  Int      @default(1)
 
-  // 🔥 ASR METRICS
   confidence           Float?
   lowConfidenceWords   Json?
   lowConfidenceRatio   Float?

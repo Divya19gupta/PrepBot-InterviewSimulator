@@ -40,28 +40,6 @@ Do not invent examples, technologies, or reasoning.
 If the answer is unclear or incomplete, acknowledge that instead of filling gaps.
 `;
 
-  // ==========================================
-  // MODE A — STRUCTURE-BASED EVALUATION
-  // ==========================================
-  // PURPOSE: Evaluate HOW the candidate communicated their answer.
-  // SCOPE: Sentence completeness, logical progression, organization,
-  //        and whether the response is developed enough to be understood.
-  //
-  // STRICT BOUNDARY — MODE A MUST NOT:
-  //   - Infer what specific words imply about the candidate's knowledge or confidence
-  //   - Read intent from hedging language (e.g. "basically", "kind of")
-  //   - Comment on whether the candidate understood the topic
-  //   - Evaluate the quality of reasoning or the logic of decisions
-  //   - Make inferences about emotional state or difficulty of the situation
-  //   - Use the word "intent" or discuss what the candidate was trying to say
-  //
-  // MODE A MUST ONLY:
-  //   - Evaluate whether sentences were complete and understandable
-  //   - Evaluate whether ideas connected logically from one to the next
-  //   - Evaluate whether the response was developed enough to address the question
-  //   - Evaluate whether required components of an answer were present or absent
-  //   - Evaluate whether the response was organized and progressed in a clear direction
-  // ==========================================
 
   const modeA = `
 MODE: STRUCTURE-BASED EVALUATION
@@ -127,28 +105,6 @@ FINAL GOAL:
 Evaluate the structural quality of the communication act — how complete, organized, and developed the response was as a spoken answer — without making any inferences about the candidate's intent, knowledge, or understanding.
 `;
 
-  // ==========================================
-  // MODE B — INTENT-BASED EVALUATION
-  // ==========================================
-  // PURPOSE: Evaluate WHAT the candidate was trying to communicate.
-  // SCOPE: Recoverable task-oriented meaning, reasoning attempt,
-  //        conceptual participation, and semantic relevance to the question.
-  //
-  // STRICT BOUNDARY — MODE B MUST NOT:
-  //   - Comment on sentence structure, organization, or logical flow
-  //   - Penalize poor phrasing, fragmented speech, or hesitation markers
-  //   - Evaluate how clearly something was said
-  //   - Make emotional interpretations (e.g. "this must have been stressful")
-  //   - Amplify or reflect back emotional difficulty
-  //   - Use the forbidden words: clarity, grammar, structure, flow, coherence
-  //
-  // MODE B MUST ONLY:
-  //   - Evaluate the task-oriented meaning recoverable from the answer
-  //   - Evaluate whether a relevant reasoning attempt is present
-  //   - Evaluate whether the candidate engaged with the conceptual task
-  //   - Note if specific content is unclear or invalid as reasoning
-  //   - Distinguish between imperfect communication of a real idea vs semantic noise
-  // ==========================================
 
   const modeB = `
 MODE: INTENT-BASED EVALUATION
@@ -253,25 +209,16 @@ Provide feedback now.
 }
 
 
-// ==========================
-// 🔧 HELPER: Detect meaningless answers (fast, rule-based)
-// ==========================
-// Used as a fast pre-check before the LLM semantic check.
-// If this catches an obviously meaningless answer, we skip the LLM call entirely.
-// This saves an API call for the most obvious cases (pure numbers, empty, single repeated word).
 export function isMeaninglessAnswer(answer: string): boolean {
   if (!answer || answer.trim().length === 0) return true;
 
   const trimmed = answer.trim();
 
-  // Only numbers and punctuation (e.g., "1, 2, 3, 4, 5, 6, 7.")
   if (/^[\d\s,.\-]+$/.test(trimmed)) return true;
 
-  // Fewer than 10 actual letters — likely ASR noise or non-speech
   const letters = trimmed.replace(/[^a-zA-Z]/g, "");
   if (letters.length < 10) return true;
 
-  // Single word repeated more than twice (e.g., "one one one one")
   const words = trimmed.split(/\s+/);
   const uniqueWords = new Set(words.map((w) => w.toLowerCase()));
   if (words.length > 2 && uniqueWords.size === 1) return true;
@@ -280,84 +227,68 @@ export function isMeaninglessAnswer(answer: string): boolean {
 }
 
 
-// ==========================
-// 🔧 HELPER: LLM semantic meaningfulness check
-// ==========================
-// Used when the rule-based check passes but the answer may still be semantically irrelevant.
-// Examples that pass the rule-based check but should be caught here:
-//   - "Sky blue. Black peach lamp. Table. Cupboard." (random objects)
-//   - "Hello. Fly, fly, fly." (conversational noise)
-//   - "I don't want to look at anything. No, no, no." (emotional fragments)
-// This check costs one API call but prevents confabulated wrongness feedback.
 export async function isSemanticallyMeaningful(
   question: string,
   answer: string
 ): Promise<boolean> {
 
-  const prompt = `You are performing semantic task-validity analysis for an interview response.
+  const prompt = `You are an off-topic response detector for a spoken interview assessment system.
 
-YOUR ONLY JOB:
-Determine whether the response contains a plausible, semantically relevant attempt to participate
-in the task requested by the interview question.
+YOUR SOLE JOB:
+Determine whether the response is ON-TOPIC or OFF-TOPIC relative to the question prompt.
 
-YOU ARE NOT EVALUATING:
-- Correctness of facts or technical claims
-- Grammar, fluency, or sentence quality
-- Whether the answer is good or complete
-- Whether terminology is accurate
-
-THE ONE QUESTION YOU MUST ANSWER:
-"Does this response contain a plausible attempt to address the semantic task required by the question?"
-
-This means: Is there any task-oriented idea, reasoning attempt, explanation, comparison, decision,
-or reflection that relates to the interview topic — even if expressed imperfectly?
+This is a well-defined NLP classification task. You are measuring ONE thing only:
+TOPICAL ALIGNMENT — does the response share topical content with the question?
 
 ==================================================
-IMPORTANT LENIENCY RULES
+DEFINITION OF ON-TOPIC (classify as MEANINGFUL)
 ==================================================
 
-A response SHOULD be classified as MEANINGFUL even if:
-- The English is broken or fragmented
-- The technical terminology is wrong or fabricated
-- The explanation is incomplete or partially incorrect
-- The candidate misunderstands part of the topic
-- The reasoning is weak or poorly expressed
-- The speaker uses hedging language ("basically", "kind of", "I think")
+A response is ON-TOPIC if it contains ANY topical overlap with the question prompt.
+Topical overlap means: the response references, addresses, acknowledges, denies, deflects,
+or engages with the subject domain of the question — regardless of quality or correctness.
 
-As long as there is a plausible attempt to engage with the question's semantic task,
-the answer is MEANINGFUL.
+This includes:
+- Answering the question directly and well
+- Answering poorly or incompletely
+- Denying having experience related to the question topic
+- Claiming inability to answer due to lack of relevant experience
+- Deflecting while still referencing the question subject
+- Giving a factually wrong answer about the topic
+- Giving a partial or vague answer that still references the topic
+- Expressing uncertainty about the topic
 
-Examples of MEANINGFUL responses that may sound weak:
-- "There is a concept called cloud session that connects APIs together." (technically wrong, but task-oriented)
-- "NodeJS is a frontend database language." (factually incorrect, but engaging with the topic)
-- "React server controls browser memory using APIs." (confused, but attempting an explanation)
-- "I made a mistake by not testing the code before pushing." (imperfect, but clearly task-relevant)
-
-==================================================
-NOT_MEANINGFUL CLASSIFICATION
-==================================================
-
-A response should be classified as NOT_MEANINGFUL only if it:
-- Contains content that has no plausible connection to the interview question topic
-- Consists of unrelated conversational fragments with no task participation
-- Contains random object lists or disconnected nouns with no explanatory intent
-- Contains emotional expressions or filler that make no attempt to address the task
-- Contains speech that could not plausibly be interpreted as a task-oriented attempt by any reasonable reader
-
-Examples of NOT_MEANINGFUL responses:
-- "Hello. Fly, fly, fly." (no task-oriented content)
-- "Sky blue. Black peach lamp. Table. Cupboard." (random objects, no task participation)
-- "I don't want to look at anything. No, no, no, no." (emotional fragment, no task attempt)
-- "One two three four five six seven." (numbers only, no task content)
-- "Bad blood now daydream flames forever." (lyric-like, no task content)
+All of the above are ON-TOPIC. The response engaged with the prompt's subject domain.
 
 ==================================================
-CRITICAL RULE
+DEFINITION OF OFF-TOPIC (classify as NOT_MEANINGFUL)
 ==================================================
 
-Do NOT hallucinate task-oriented meaning from semantically invalid content.
-Do NOT "help" the speaker by inferring hidden interview intent from unrelated words.
-But DO give the benefit of the doubt when any plausible task-oriented idea exists.
+A response is OFF-TOPIC only if it contains ZERO topical overlap with the question.
+This means the response could have been given to any arbitrary question — it contains
+nothing that connects it to this specific prompt's subject domain.
+
+Off-topic responses include:
+- Random words, numbers, song lyrics or sequences with no propositional content
+- Unrelated conversational noise ("hello", "okay", "I don't know")
+- Content from a completely unrelated domain with no connection to the question
+- Filler speech or emotional outbursts with no task-oriented content
+- Responses that are entirely about something disconnected from the prompt topic
+
+==================================================
+THE CORE TEST — apply this before anything else
+==================================================
+
+Ask yourself: "If I removed the question and only saw the response, could a reasonable
+person infer that this response was given to THIS question (or at least to a question
+in this subject domain)?"
+
+If YES → MEANINGFUL
+If NO → NOT_MEANINGFUL
+
+==================================================
+OUTPUT
+==================================================
 
 Your output MUST be EXACTLY one of these two labels (no punctuation, no explanation):
 MEANINGFUL
@@ -375,7 +306,7 @@ ${answer}`;
     messages: [
       {
         role: "system",
-        content: "You are a semantic relevance classifier. Output only MEANINGFUL or NOT_MEANINGFUL.",
+        content: "You are a binary off-topic response classifier. You measure only topical alignment between a question and a response. Output only MEANINGFUL or NOT_MEANINGFUL.",
       },
       { role: "user", content: prompt },
     ],
@@ -384,12 +315,6 @@ ${answer}`;
   const result = res.choices[0].message.content?.trim();
   return result === "MEANINGFUL";
 }
-
-
-
-// ==========================
-// 🔥 WRONG FEEDBACK
-// ==========================
 
 export type WrongFeedback = {
   feedback: string;
@@ -401,11 +326,9 @@ export async function generateWrongFeedback(
   question: string,
   answer: string,
   mode: "A" | "B",
-  questionIndex: number = 0,
   correctFeedback: string
 ): Promise<WrongFeedback> {
 
-  // Guard 1: fast rule-based
   if (isMeaninglessAnswer(answer)) {
     return {
       feedback: correctFeedback,
@@ -414,7 +337,6 @@ export async function generateWrongFeedback(
     };
   }
 
-  // Guard 2: semantic check
   const meaningful = await isSemanticallyMeaningful(question, answer);
   if (!meaningful) {
     return {
@@ -424,9 +346,6 @@ export async function generateWrongFeedback(
     };
   }
 
-  // ==========================
-  // SHARED MODE CONFIG
-  // ==========================
   const modeDescription = mode === "A"
     ? `STRUCTURE-BASED evaluation — assesses HOW the answer was communicated: sentence completeness, logical organization, development of ideas, coverage of required structural components. Does NOT evaluate intent, meaning, or knowledge.`
     : `INTENT-BASED evaluation — assesses WHAT the candidate was trying to communicate: recoverable meaning, reasoning attempt, task-oriented participation. Does NOT evaluate how it was said, sentence structure, or organization.`;
@@ -445,9 +364,7 @@ export async function generateWrongFeedback(
 - Emotional amplifications about difficulty or pressure
 - Penalizing hedging language (basically, kind of, I think) as a structural problem`;
 
-  // ==========================
-  // PASS 1: GENERATE DISTORTED FEEDBACK
-  // ==========================
+
   const distortionPrompt = `
 You are an AI interview evaluator generating research stimuli.
 
@@ -574,10 +491,7 @@ Output only valid JSON.`,
   const distortionType: string = pass1Result.distortionType || "soft_misinterpretation";
   const whatWasDistorted: string = pass1Result.whatWasDistorted || "";
 
-  // ==========================
-  // PASS 2: GENERATE EXPLANATION
-  // with full context: question + answer + correct + wrong + what was distorted
-  // ==========================
+
   const explanationPrompt = `
 You are a research analyst reviewing AI-generated interview feedback stimuli.
 

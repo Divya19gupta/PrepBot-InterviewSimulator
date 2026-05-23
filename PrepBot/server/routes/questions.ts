@@ -1,19 +1,3 @@
-// import express from "express";
-// // import { generateInterviewQuestions } from "../services/geminiService";
-// import { generateInterviewQuestions, evaluateAnswer } from "../services/openaiService";
-// const router = express.Router();
-
-// router.get("/", async (req, res) => {
-//   try {
-//     const questions = await generateInterviewQuestions();
-//     res.json({ questions });
-//   } catch (err) {
-//     res.status(500).json({ error: "Failed to generate questions" });
-//   }
-// });
-
-// export default router;
-
 import express from "express";
 
 const router = express.Router();
@@ -23,7 +7,7 @@ const router = express.Router();
 // Q3 → recall + hesitation
 // Q4 → numbers (ASR weak point)
 // Q5 → complex grammar + reasoning
-// ✅ Static questions (NO API CALL)
+
 const questions = [
   // Q1 — Technical articulation (terminology + clarity vs intent)
   "Describe a project or piece of work you completed using any tools, methods, or systems you had to learn. What did you build or produce, and how did the different parts of your work connect together?",
