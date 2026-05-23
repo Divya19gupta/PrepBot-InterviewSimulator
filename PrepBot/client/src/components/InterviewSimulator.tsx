@@ -1350,8 +1350,10 @@ const InterviewSimulator: React.FC = () => {
                           label: "Did any feedback seem to judge how you said something rather than what you meant?",
                           key: "RQ3_fluencyEffect",
                           options: [
-                            { value: "yes", label: "Yes" },
-                            { value: "no", label: "No" },
+                            { value: "A", label: "Feedback A" },
+                            { value: "B", label: "Feedback B" },
+                            { value: "both", label: "Both" },
+                            { value: "no", label: "Neither" },
                           ],
                         },
                         {
