@@ -17,10 +17,8 @@ const TopBar: React.FC<TopBarProps> = ({ color = "#07466E" }) => {
   const [isResetting, setIsResetting] = useState(false);
 
   const handleReset = async () => {
-  // 🔥 CLOSE DIALOG FIRST (important)
   setConfirmOpen(false);
 
-  // 🔥 small delay so dialog unmounts cleanly
   setTimeout(async () => {
     setIsResetting(true);
 
@@ -41,12 +39,11 @@ const TopBar: React.FC<TopBarProps> = ({ color = "#07466E" }) => {
         }
       }
     } catch (err) {
-      console.error("❌ Reset failed:", err);
+      console.error("Reset failed:", err);
     }
 
     localStorage.removeItem("userData");
 
-    // 🔥 keep loader visible briefly (good UX)
     setTimeout(() => {
       navigate("/", { replace: true });
     }, 500);
@@ -72,16 +69,12 @@ const TopBar: React.FC<TopBarProps> = ({ color = "#07466E" }) => {
             <HomeIcon />
           </IconButton>
         </Tooltip>
-
-        {/* 🔥 RESET BUTTON */}
         <Tooltip title="Start Fresh">
           <IconButton onClick={() => setConfirmOpen(true)} sx={{ color: "red" }}>
             <RestartAltIcon />
           </IconButton>
         </Tooltip>
       </Box>
-
-      {/* 🔥 CONFIRM DIALOG */}
       <Dialog open={confirmOpen} 
        PaperProps={{ sx: { position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: '80%', maxWidth: 600, maxHeight: '80vh', overflowY: 'auto', bgcolor: '#fcfcfc', borderRadius: '10px', boxShadow: 24, p: 4, border: '1px solid #ddd', fontFamily: 'Segoe UI, sans-serif' } }}
       onClose={() => setConfirmOpen(false)}>

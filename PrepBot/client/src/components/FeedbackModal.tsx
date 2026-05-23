@@ -39,59 +39,50 @@ export default function FeedbackModal({
 }: FeedbackModalProps) {
   const current = feedback[currentIndex];
 
-  // 🔹 Select correct feedback
   const selectedFeedback =
     selectedType === "A"
       ? current?.feedbackA
       : current?.feedbackB;
-
-  // 🔥 Highlight low confidence words (restored feature)
   const renderTranscript = (
-  text: string,
-  lowWords: string[] = [],
-  selectedType: "A" | "B"
-) => {
-  if (!text) return "No transcript available";
+    text: string,
+    lowWords: string[] = [],
+    selectedType: "A" | "B"
+  ) => {
+    if (!text) return "No transcript available";
 
-  // 🔴 DO NOT highlight for A
-  if (selectedType === "A") {
-    return text;
-  }
+    if (selectedType === "A") {
+      return text;
+    }
+    const normalize = (word: string) =>
+      word.toLowerCase().replace(/[.,!?]/g, "");
 
-  // 🟢 Highlight ONLY for B
-  const normalize = (word: string) =>
-    word.toLowerCase().replace(/[.,!?]/g, "");
+    const words = text.split(" ");
 
-  const words = text.split(" ");
+    return words.map((word, index) => {
+      const clean = normalize(word);
+      const isLow = lowWords.includes(clean);
 
-  return words.map((word, index) => {
-    const clean = normalize(word);
-    const isLow = lowWords.includes(clean);
-
-    return (
-      <span
-        key={index}
-        style={{
-          color: isLow ? "#e53935" : "inherit",
-          fontWeight: isLow ? "bold" : "normal",
-        }}
-      >
-        {word + " "}
-      </span>
-    );
-  });
-};
+      return (
+        <span
+          key={index}
+          style={{
+            color: isLow ? "rgb(239, 148, 2)" : "inherit",
+            fontWeight: isLow ? "bold" : "normal",
+          }}
+        >
+          {word + " "}
+        </span>
+      );
+    });
+  };
 
   return (
     <Modal open={open} onClose={onClose}>
       <Fade in={open}>
         <Box sx={modalStyle}>
-          {/* 🔹 TITLE */}
           <Typography variant="h6" sx={{ mb: 2 }}>
             Feedback ({selectedType})
           </Typography>
-
-          {/* 🔥 TRANSCRIPT SECTION (FIXED) */}
           {current?.answer && (
             <Box sx={{ mb: 3 }}>
               <Typography
@@ -110,15 +101,13 @@ export default function FeedbackModal({
                 }}
               >
                 {renderTranscript(
-                current.answer,
-                current.lowConfidenceWords || [],
-                selectedType
-              )}
+                  current.answer,
+                  current.lowConfidenceWords || [],
+                  selectedType
+                )}
               </Typography>
             </Box>
           )}
-
-          {/* 🔥 CONFIDENCE (ONLY FOR B — KEEPING YOUR LOGIC) */}
           {selectedType === "B" &&
             current?.confidence !== undefined &&
             current?.confidence !== null && (
@@ -126,11 +115,12 @@ export default function FeedbackModal({
                 variant="body2"
                 sx={{ mb: 2, color: "#666" }}
               >
-                Transcription Confidence: {(current.confidence * 100).toFixed(0)}% (some words may be incorrect)
+                Transcription Confidence: {(current.confidence * 100).toFixed(0)}%
+                {current?.lowConfidenceWords?.length > 0
+                  ? " — highlighted words may be incorrect"
+                  : " — no transcription issues detected"}
               </Typography>
             )}
-
-          {/* 🔹 FEEDBACK */}
           <Typography
             variant="subtitle2"
             sx={{ color: "#555", mb: 1 }}

@@ -4,7 +4,7 @@ import { useTheme } from "@mui/material/styles";
 
 type Props = {
   open: boolean;
-  stage?: "transcribing" | "evaluating" | "loading" | "resetting" | "starting" | "new-round" | "submitting";
+  stage?: "transcribing" | "evaluating" | "loading" | "resetting" | "preparing-questions" | "starting" | "submitting";
 };
 
 const AIBackdrop: React.FC<Props> = ({ open, stage = "loading" }) => {
@@ -20,8 +20,8 @@ const AIBackdrop: React.FC<Props> = ({ open, stage = "loading" }) => {
         return "Resetting session";
       case "starting":
         return "Starting interview";
-    case "new-round":
-        return "Preparing next round";
+    case "preparing-questions":
+        return "Preparing next question";
     case "submitting":
         return "Submitting feedback";
       default:
@@ -40,7 +40,6 @@ const AIBackdrop: React.FC<Props> = ({ open, stage = "loading" }) => {
         flexDirection: "column",
       }}
     >
-      {/* 🔥 WAVEFORM (TRANSCRIBING) */}
       {stage === "transcribing" && (
         <Box sx={{ display: "flex", gap: 0.6, mb: 3 }}>
           {[...Array(6)].map((_, i) => (
@@ -62,8 +61,6 @@ const AIBackdrop: React.FC<Props> = ({ open, stage = "loading" }) => {
           ))}
         </Box>
       )}
-
-      {/* 🔥 THINKING ANIMATION (EVALUATING) */}
       {stage === "evaluating" && (
         <Box
           sx={{
@@ -86,8 +83,6 @@ const AIBackdrop: React.FC<Props> = ({ open, stage = "loading" }) => {
           }}
         />
       )}
-
-      {/* 🔥 DEFAULT LOADER */}
       {stage !== "transcribing" && stage !== "evaluating" && (
         <Box
           sx={{
@@ -103,8 +98,6 @@ const AIBackdrop: React.FC<Props> = ({ open, stage = "loading" }) => {
           <CircularProgress color="inherit" size={50} />
         </Box>
       )}
-
-      {/* 🔥 TEXT + TYPING DOTS */}
       <Typography
       component="div"
         sx={{
@@ -121,8 +114,6 @@ const AIBackdrop: React.FC<Props> = ({ open, stage = "loading" }) => {
         }}
       >
         {getText()}
-
-        {/* Typing dots */}
         <Box sx={{ display: "flex", gap: 0.3, ml: 0.5 }}>
           {[0, 1, 2].map((i) => (
             <Box
