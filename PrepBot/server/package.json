@@ -3,25 +3,27 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-  "dev": "ts-node index.ts",
-  "build": "tsc",
-  "start": "node dist/index.js"
+    "dev": "ts-node index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
     "@prisma/client": "^5.22.0",
     "@supabase/supabase-js": "^2.99.3",
-    "assemblyai": "^4.28.0",
+    "assemblyai": "^4.35.0",
     "axios": "^1.9.0",
     "body-parser": "^2.2.0",
     "cors": "^2.8.5",
     "dotenv": "^16.5.0",
-    "express": "^4.21.2",
+    "express": "^5.2.1",
     "form-data": "^4.0.2",
     "multer": "^2.0.0",
-    "openai": "^5.23.2",
+    "openai": "^6.44.0",
     "prisma": "^5.22.0",
-    "uuid": "^11.1.0"
+    "uuid": "^11.1.0",
+    "ws": "^8.21.0",
+    "zod": "^3.25.76"
   },
   "keywords": [],
   "author": "",

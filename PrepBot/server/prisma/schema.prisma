@@ -13,6 +13,12 @@ model Session {
   userId       String
   participantId String  @unique
   language     String
+
+  experimentVersion String
+  wrongnessImplementation String
+  structureCriteria String[]
+
+  intentCriteria String[]
   status       String   @default("in_progress")
 
   answers   Answer[]
@@ -30,8 +36,8 @@ model Answer {
 
   feedbackA String?
   feedbackB String?
-  wrongFeedbackType String?
-  wrongErrorType   String?
+  uncertainty String?
+  errorCondition String?
   wrongExplanation String?
 
   trustChoice    String?
@@ -43,6 +49,7 @@ model Answer {
   reengageIntent    String?
   selfCompetence    String?
   uncertaintyBuffer String?
+  uncertaintyInfluence  String?
 
   audioFile String
   attempts  Int      @default(1)

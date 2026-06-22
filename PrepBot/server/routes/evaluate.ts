@@ -1,124 +1,228 @@
 import express from "express";
-import {
-  evaluateAnswer,
-  generateWrongFeedback,
-  isMeaninglessAnswer,
-} from "../services/openaiService";
+
+import { generateReferenceEvaluation } from "../services/evaluation/generateReferenceEvaluation";
+import { generateReferenceFeedback } from "../services/evaluation/generateReferenceFeedback";
+import { manipulateEvaluation } from "../services/evaluation/manipulateEvaluation";
+import { validateManipulation } from "../services/evaluation/validateManipulation";
+import { isEvaluableResponse } from "../services/evaluation/isEvaluableResponse";
+import { getExperimentCondition } from "../services/evaluation/getExperimentCondition";
 
 const router = express.Router();
-
-function shuffle<T>(array: T[]): T[] {
-  return array.sort(() => Math.random() - 0.5);
-}
 
 router.post("/", async (req, res) => {
   try {
     const {
+      sessionId,
       question,
       answer,
-      confidence,
-      lowConfidenceRatio,
-      sessionConditions,
-      currentIndex,
+      questionIndex,
     } = req.body;
 
-    let conditions: string[] = sessionConditions;
+    //--------------------------------------------------
+    // Load experimental condition
+    //--------------------------------------------------
 
-    if (!conditions || conditions.length === 0) {
-      conditions = shuffle([
-        "A_wrong",
-        "B_wrong",
-        "both_correct",
-        "A_wrong",
-        "B_wrong",
-        "both_correct",
-      ]);
+    const condition = await getExperimentCondition(
+      sessionId,
+      questionIndex
+    );
+
+    //--------------------------------------------------
+    // Check whether the response contains enough
+    // observable information to evaluate.
+    //--------------------------------------------------
+
+    const structureEvaluable =
+      await isEvaluableResponse(
+        question,
+        answer,
+        "structure"
+      );
+
+    const intentEvaluable =
+      await isEvaluableResponse(
+        question,
+        answer,
+        "intent"
+      );
+
+    //--------------------------------------------------
+    // Skip evaluation if insufficient information
+    //--------------------------------------------------
+
+    if (!structureEvaluable || !intentEvaluable) {
+       res.json({
+        feedbackA:
+          "Your response did not contain enough observable information to generate meaningful structured feedback.",
+
+        feedbackB:
+          "Your response did not contain enough observable information to generate meaningful content feedback.",
+
+        uncertainty: condition.uncertainty,
+
+        errorCondition: condition.error,
+
+        wrongnessImplementation:
+          condition.wrongnessImplementation,
+
+        wrongExplanation:
+          "Evaluation skipped because the response was not evaluable.",
+      });
+      return;
     }
 
-    const answerIsMeaningless = isMeaninglessAnswer(answer);
+    //--------------------------------------------------
+    // Generate reference evaluations
+    //--------------------------------------------------
 
-    const intendedCondition = (currentIndex >= 0 && currentIndex < conditions.length)
-      ? conditions[currentIndex]
-      : "both_correct";
+    const structureReference =
+      await generateReferenceEvaluation(
+        question,
+        answer,
+        "structure"
+      );
 
-    let effectiveCondition = intendedCondition;
-    let wrongExplanation: string | null = null;
+    const intentReference =
+      await generateReferenceEvaluation(
+        question,
+        answer,
+        "intent"
+      );
 
-    if (answerIsMeaningless) {
-      effectiveCondition = "both_correct";
-      wrongExplanation = `SKIPPED: answer was non-meaningful (rule-based detection). Intended condition was: ${intendedCondition}`;
-    }
-    if (!answerIsMeaningless && effectiveCondition === "both_correct") {
-      wrongExplanation = "both_correct: no distortion intended for this question.";
-    }
+    //--------------------------------------------------
+    // Default evaluations
+    //--------------------------------------------------
 
-    const [feedbackA_real, feedbackB_real] = await Promise.all([
-      evaluateAnswer(question, answer, "A"),
-      evaluateAnswer(question, answer, "B"),
-    ]);
+    let structureEvaluation =
+      structureReference;
 
-    let feedbackA = feedbackA_real;
-    let feedbackB = feedbackB_real;
-    let wrongFeedbackType: "A" | "B" | null = null;
-    let wrongErrorType: string | null = null;
+    let intentEvaluation =
+      intentReference;
 
-    if (effectiveCondition === "A_wrong") {
-      try {
-        const wrong = await generateWrongFeedback(
-          question, answer, "A",
-          feedbackA_real
+    let wrongExplanation: string | null =
+      null;
+
+    //--------------------------------------------------
+    // Manipulate if assigned to Wrong condition
+    //--------------------------------------------------
+
+    if (condition.error === "wrong") {
+
+      if (
+        !condition.structureCriterion ||
+        !condition.intentCriterion
+      ) {
+        throw new Error(
+          "Manipulation criteria missing."
         );
-        feedbackA = wrong.feedback;
-
-        if (wrong.feedback !== feedbackA_real) {
-          wrongFeedbackType = "A";
-          wrongErrorType = wrong.errorType;
-          wrongExplanation = wrong.errorExplanation;
-        } else if (wrong.errorExplanation?.includes("Pass 1 JSON parse failed")) {
-          wrongExplanation = "SKIPPED: distortion generation failed (JSON parse error). Intended condition was: A_wrong";
-        } else {
-          wrongExplanation = "SKIPPED: answer was non-meaningful (semantic check). Intended condition was: A_wrong";
-        }
-      } catch (err) {
-        wrongExplanation = "SKIPPED: distortion generation threw an exception. Intended condition was: A_wrong. Correct feedback used.";
-        feedbackA = feedbackA_real;
       }
 
-    } else if (effectiveCondition === "B_wrong") {
-      try {
-        const wrong = await generateWrongFeedback(
-          question, answer, "B",
-          feedbackB_real
-        );
-        feedbackB = wrong.feedback;
+      //------------------------------
+      // Structure
+      //------------------------------
 
-        if (wrong.feedback !== feedbackB_real) {
-          wrongFeedbackType = "B";
-          wrongErrorType = wrong.errorType;
-          wrongExplanation = wrong.errorExplanation;
-        } else if (wrong.errorExplanation?.includes("Pass 1 JSON parse failed")) {
-          wrongExplanation = "SKIPPED: distortion generation failed (JSON parse error). Intended condition was: B_wrong";
-        } else {
-          wrongExplanation = "SKIPPED: answer was non-meaningful (semantic check). Intended condition was: B_wrong";
-        }
-      } catch (err) {
-        wrongExplanation = "SKIPPED: distortion generation threw an exception. Intended condition was: B_wrong. Correct feedback used.";
-        feedbackB = feedbackB_real;
+      const manipulatedStructure =
+        await manipulateEvaluation(
+          structureReference,
+          condition.structureCriterion,
+          condition.wrongnessImplementation
+        );
+
+      const structureValidation =
+        await validateManipulation(
+          structureReference,
+          manipulatedStructure.evaluation,
+          condition.structureCriterion,
+          condition.wrongnessImplementation
+        );
+
+      if (!structureValidation.valid) {
+        throw new Error(
+          structureValidation.reason
+        );
       }
+
+      //------------------------------
+      // Intent
+      //------------------------------
+
+      const manipulatedIntent =
+        await manipulateEvaluation(
+          intentReference,
+          condition.intentCriterion,
+          condition.wrongnessImplementation
+        );
+
+      const intentValidation =
+        await validateManipulation(
+          intentReference,
+          manipulatedIntent.evaluation,
+          condition.intentCriterion,
+          condition.wrongnessImplementation
+        );
+
+      if (!intentValidation.valid) {
+        throw new Error(
+          intentValidation.reason
+        );
+      }
+
+      structureEvaluation =
+        manipulatedStructure.evaluation;
+
+      intentEvaluation =
+        manipulatedIntent.evaluation;
+
+      wrongExplanation = `Structure:
+${manipulatedStructure.explanation}
+
+Intent:
+${manipulatedIntent.explanation}`;
     }
+
+    //--------------------------------------------------
+    // Generate participant-facing feedback
+    //--------------------------------------------------
+
+    const feedbackA =
+      await generateReferenceFeedback(
+        structureEvaluation
+      );
+
+    const feedbackB =
+      await generateReferenceFeedback(
+        intentEvaluation
+      );
+
+    //--------------------------------------------------
+    // Return response
+    //--------------------------------------------------
 
     res.json({
       feedbackA,
+
       feedbackB,
-      wrongFeedbackType,
-      wrongErrorType,
+
+      uncertainty:
+        condition.uncertainty,
+
+      errorCondition:
+        condition.error,
+
+      wrongnessImplementation:
+        condition.wrongnessImplementation,
+
       wrongExplanation,
-      sessionConditions: conditions,
     });
 
   } catch (err) {
-    console.error("Evaluate route error:", err);
-    res.status(500).json({ error: "Evaluation failed" });
+
+    console.error("Evaluation error:", err);
+
+    res.status(500).json({
+      error: "Evaluation failed.",
+    });
+
   }
 });
 

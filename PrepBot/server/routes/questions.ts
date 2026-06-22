@@ -21,11 +21,6 @@ const questions = [
   // Q4 — Recall + hesitation (cognitive load, explanation under pressure)
 "Explain a process or concept you are familiar with as clearly as you can, but imagine you are explaining it to someone with no background in it.",
 
-  // Q5 — Quantification (numbers + precision, ASR stress)
-  "Describe a project where you improved performance or efficiency. What changes did you make, and what measurable impact did they have?",
-
-  // Q6 — Comparative reasoning (higher-order thinking)
-  "Compare two different approaches you have used to solve a problem. Which one worked better and why?"
 ];
 
 router.get("/", async (req, res) => {
