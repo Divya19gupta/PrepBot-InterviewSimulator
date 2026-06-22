@@ -43,38 +43,39 @@ export default function FeedbackModal({
     selectedType === "A"
       ? current?.feedbackA
       : current?.feedbackB;
-  const renderTranscript = (
-    text: string,
-    lowWords: string[] = [],
-    selectedType: "A" | "B"
-  ) => {
-    if (!text) return "No transcript available";
+ const renderTranscript = (
+  text: string,
+  lowWords: string[] = [],
+  uncertainty: "visible" | "hidden" = "hidden"
+) => {
+  if (!text) return "No transcript available";
 
-    if (selectedType === "A") {
-      return text;
-    }
-    const normalize = (word: string) =>
-      word.toLowerCase().replace(/[.,!?]/g, "");
+  if (uncertainty !== "visible") {
+    return text;
+  }
 
-    const words = text.split(" ");
+  const normalize = (word: string) =>
+    word.toLowerCase().replace(/[.,!?]/g, "");
 
-    return words.map((word, index) => {
-      const clean = normalize(word);
-      const isLow = lowWords.includes(clean);
+  const words = text.split(" ");
 
-      return (
-        <span
-          key={index}
-          style={{
-            color: isLow ? "rgb(239, 148, 2)" : "inherit",
-            fontWeight: isLow ? "bold" : "normal",
-          }}
-        >
-          {word + " "}
-        </span>
-      );
-    });
-  };
+  return words.map((word, index) => {
+    const clean = normalize(word);
+    const isLow = lowWords.includes(clean);
+
+    return (
+      <span
+        key={index}
+        style={{
+          color: isLow ? "rgb(239, 148, 2)" : "inherit",
+          fontWeight: isLow ? "bold" : "normal",
+        }}
+      >
+        {word + " "}
+      </span>
+    );
+  });
+};
 
   return (
     <Modal open={open} onClose={onClose}>
@@ -101,26 +102,26 @@ export default function FeedbackModal({
                 }}
               >
                 {renderTranscript(
-                  current.answer,
-                  current.lowConfidenceWords || [],
-                  selectedType
-                )}
+                current.answer,
+                current.lowConfidenceWords || [],
+                current.uncertainty ?? "hidden"
+              )}
               </Typography>
             </Box>
           )}
-          {selectedType === "B" &&
+          {current?.uncertainty === "visible" &&
             current?.confidence !== undefined &&
             current?.confidence !== null && (
               <Typography
                 variant="body2"
                 sx={{ mb: 2, color: "#666" }}
               >
-                Transcription Confidence: {(current.confidence * 100).toFixed(0)}%
+               Speech Recognition Confidence: {(current.confidence * 100).toFixed(0)}%
                 {current?.lowConfidenceWords?.length > 0
-                  ? " — highlighted words may be incorrect"
-                  : " — no transcription issues detected"}
+                  ? " : some highlighted words may have been transcribed incorrectly."
+                  : " : no transcription issues detected."}
               </Typography>
-            )}
+          )}
           <Typography
             variant="subtitle2"
             sx={{ color: "#555", mb: 1 }}

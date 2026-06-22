@@ -36,7 +36,7 @@ import IntroScreen from "../pages/IntroScreen";
 
 const API_URL =
   import.meta.env.VITE_API_URL || "https://prepbot-server.onrender.com";
-const TOTAL_QUESTIONS = 6;
+const TOTAL_QUESTIONS = 4;
 
 const InterviewSimulator: React.FC = () => {
   const navigate = useNavigate();
@@ -96,18 +96,18 @@ const InterviewSimulator: React.FC = () => {
   const [showRQDialog, setShowRQDialog] = useState(false);
 
   const [rqAnswers, setRqAnswers] = useState({
-    RQ1_blame_pre: "",
-    RQ1_blame_post: "",
-    RQ1_reengageIntent: "",
-    RQ2_trust: "",
-    RQ2_errorDetection: "",
-    RQ2_selfCompetence: "",
-    RQ3_uncertaintyBuffer: "",
-    RQ3_fluencyEffect: "",
-    clarity: "",
+    Q1_blameTarget:         "",
+    Q2_selfCompetence:      "",
+    Q3_trustChoice:         "",
+    Q4_reengageIntent:      "",
+    Q5_perceivedAccuracy:   "",
+    Q6_feedbackAUsefulness: "",
+    Q7_feedbackBUsefulness: "",
+    Q8_noticedCues:         "",
   });
 
-  const [sessionConditions, setSessionConditions] = useState<string[]>([]);
+  const [q9Influence, setQ9Influence] = useState("");
+
   const isDisabled = recording;
   const [selectedFeedbackType, setSelectedFeedbackType] =
     useState<"A" | "B">("A");
@@ -205,6 +205,9 @@ const InterviewSimulator: React.FC = () => {
               answer: found.transcript,
               feedbackA: found.feedbackA || "",
               feedbackB: found.feedbackB || "",
+              uncertainty: found.uncertainty,
+              errorCondition: found.errorCondition,
+              wrongExplanation: found.wrongExplanation || null,
               viewedFeedbackA: found.viewedFeedbackA || false,
               viewedFeedbackB: found.viewedFeedbackB || false,
               trustChoice: found.trustChoice || null,
@@ -312,7 +315,7 @@ const InterviewSimulator: React.FC = () => {
       return;
     }
 
-    const attempt = attempts[currentIndex] + 1;
+    const attempt = attempts[index] + 1;
 
     const fetchJSON = async (url: string, body: any, timeout = 20000) => {
       const controller = new AbortController();
@@ -371,9 +374,9 @@ const InterviewSimulator: React.FC = () => {
               answer: "",
               feedbackA: "⚠️ Could not generate feedback. Please try again.",
               feedbackB: "⚠️ Could not generate feedback. Please try again.",
-              wrongFeedbackType: null,
-              wrongErrorType: null,
               wrongExplanation: null,
+              uncertainty: "hidden",
+              errorCondition: null,
               lowConfidenceWords: resData.lowConfidenceWords || [],
               confidence: resData.confidence,
               lowConfidenceRatio: resData.lowConfidenceRatio || 0,
@@ -400,22 +403,16 @@ const InterviewSimulator: React.FC = () => {
         setProcessingStage("evaluating");
 
         const evaluation = await fetchJSON(`${API_URL}/api/evaluate`, {
+          sessionId: userData.sessionId,
           question,
           answer: resData.transcript,
-          confidence: resData.confidence,
-          lowConfidenceRatio: resData.lowConfidenceRatio || 0,
-          sessionConditions: sessionConditions.length ? sessionConditions : undefined,
-          currentIndex,
+          questionIndex: index,
         });
 
-        if (evaluation?.sessionConditions) {
-          setSessionConditions(evaluation.sessionConditions);
-        }
+        
 
         const feedbackA = evaluation?.feedbackA || "";
         const feedbackB = evaluation?.feedbackB || "";
-        const wrongFeedbackType = evaluation?.wrongFeedbackType || null;
-        const wrongErrorType = evaluation?.wrongErrorType || null;
         const wrongExplanation = evaluation?.wrongExplanation || null;
 
         if (!feedbackA || !feedbackB) {
@@ -432,9 +429,9 @@ const InterviewSimulator: React.FC = () => {
           assemblyTranscriptId,
           feedbackA,
           feedbackB,
-          wrongFeedbackType,
-          wrongErrorType,
           wrongExplanation,
+          uncertainty: evaluation.uncertainty,
+          errorCondition: evaluation.errorCondition,
           audioBase64: base64Audio,
           recordingAttempts: attempt,
           confidence: resData.confidence,
@@ -455,9 +452,9 @@ const InterviewSimulator: React.FC = () => {
             answer: resData.transcript,
             feedbackA,
             feedbackB,
-            wrongFeedbackType,
-            wrongErrorType,
             wrongExplanation,
+            uncertainty: evaluation.uncertainty,
+            errorCondition: evaluation.errorCondition,
             lowConfidenceWords: resData.lowConfidenceWords || [],
             confidence: resData.confidence,
             lowConfidenceRatio: resData.lowConfidenceRatio || 0,
@@ -480,8 +477,8 @@ const InterviewSimulator: React.FC = () => {
             answer: "",
             feedbackA: "⚠️ Could not generate feedback. Please try again.",
             feedbackB: "⚠️ Could not generate feedback. Please try again.",
-            wrongFeedbackType: null,
-            wrongErrorType: null,
+            uncertainty: "hidden",
+            errorCondition: null,
             wrongExplanation: null,
             lowConfidenceWords: [],
             lowConfidenceRatio: 1,
@@ -559,72 +556,71 @@ const InterviewSimulator: React.FC = () => {
     setIsSubmittingRQ(true);
 
     const {
-      RQ1_blame_pre,
-      RQ1_blame_post,
-      RQ1_reengageIntent,
-      RQ2_trust,
-      RQ2_errorDetection,
-      RQ2_selfCompetence,
-      RQ3_uncertaintyBuffer,
-      RQ3_fluencyEffect,
-      clarity,
+    Q1_blameTarget,
+    Q2_selfCompetence,
+    Q3_trustChoice,
+    Q4_reengageIntent,
+    Q5_perceivedAccuracy,
+    Q6_feedbackAUsefulness,
+    Q7_feedbackBUsefulness,
+    Q8_noticedCues,
     } = rqAnswers;
+    const isUncertaintyVisible = currentFeedback.uncertainty === "visible";
+const q9Required = isUncertaintyVisible && Q8_noticedCues === "yes";
 
-    if (
-      !RQ1_blame_pre ||
-      !RQ1_blame_post ||
-      !RQ1_reengageIntent ||
-      !RQ2_trust ||
-      !RQ2_errorDetection ||
-      !RQ2_selfCompetence ||
-      !RQ3_uncertaintyBuffer ||
-      !RQ3_fluencyEffect ||
-      !clarity
-    ) {
-      toast.error("Please answer all feedback questions");
-      setIsSubmittingRQ(false);
-      return;
-    }
+const baseRequired = [
+  Q1_blameTarget,
+  Q2_selfCompetence,
+  Q3_trustChoice,
+  Q4_reengageIntent,
+  Q5_perceivedAccuracy,
+  Q6_feedbackAUsefulness,
+  Q7_feedbackBUsefulness,
+];
+if (isUncertaintyVisible) baseRequired.push(Q8_noticedCues);
 
-    try {
-      const res = await fetch(`${API_URL}/api/session/answer/feedback`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          sessionId: userData.sessionId,
-          questionIndex: currentIndex,
-          blameTarget: `${RQ1_blame_pre}|${RQ1_blame_post}`,
-          reengageIntent: RQ1_reengageIntent,
-          trustChoice: RQ2_trust,
-          trustReason: RQ2_errorDetection,
-          selfCompetence: RQ2_selfCompetence,
-          uncertaintyBuffer: RQ3_uncertaintyBuffer,
-          bias: RQ3_fluencyEffect,
-          clarity,
-        }),
-      });
+if (baseRequired.some((v) => !v) || (q9Required && !q9Influence)) {
+  toast.error("Please answer all feedback questions");
+  setIsSubmittingRQ(false);
+  return;
+}
 
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data.error || "Failed to save feedback");
-      }
+   try {
+  const res = await fetch(`${API_URL}/api/session/answer/feedback`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      sessionId:            userData.sessionId,
+      questionIndex:        currentIndex,
+      blameTarget:          Q1_blameTarget,
+      selfCompetence:       Q2_selfCompetence,
+      trustChoice:          Q3_trustChoice,
+      reengageIntent:       Q4_reengageIntent,
+      bias:                 Q5_perceivedAccuracy,
+      clarity:              Q6_feedbackAUsefulness,
+      trustReason:          Q7_feedbackBUsefulness,
+      uncertaintyBuffer:    isUncertaintyVisible ? Q8_noticedCues : null,
+      uncertaintyInfluence: q9Required ? q9Influence : null,
+    }),
+  });
 
-      setFeedback((prev) => {
-        const updated = [...prev];
-        const existing = updated[currentIndex] || {};
+       if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || "Failed to save feedback");
+  }
 
-        updated[currentIndex] = {
-          ...existing,
-          trustChoice: RQ2_trust,
-        };
+  setFeedback((prev) => {
+    const updated = [...prev];
+    const existing = updated[currentIndex] || {};
+    updated[currentIndex] = {
+      ...existing,
+      trustChoice: Q3_trustChoice,
+    };
+    return updated;
+  });
 
-        return updated;
-      });
-
-      setShowRQDialog(false);
-      toast.success("Feedback submitted successfully");
+  setShowRQDialog(false);
+  toast.success("Feedback submitted successfully");
 
     } catch (err: any) {
       console.error("Feedback save failed:", err);
@@ -1038,20 +1034,20 @@ const InterviewSimulator: React.FC = () => {
                 <Tooltip title="Answer feedback questions">
                   <span>
                     <IconButton
-                      onClick={() => {
-                        setRqAnswers({
-                          RQ1_blame_pre: "",
-                          RQ1_blame_post: "",
-                          RQ1_reengageIntent: "",
-                          RQ2_trust: "",
-                          RQ2_errorDetection: "",
-                          RQ2_selfCompetence: "",
-                          RQ3_uncertaintyBuffer: "",
-                          RQ3_fluencyEffect: "",
-                          clarity: "",
-                        });
+                     onClick={() => {
+                      setRqAnswers({
+                        Q1_blameTarget:         "",
+                        Q2_selfCompetence:      "",
+                        Q3_trustChoice:         "",
+                        Q4_reengageIntent:      "",
+                        Q5_perceivedAccuracy:   "",
+                        Q6_feedbackAUsefulness: "",
+                        Q7_feedbackBUsefulness: "",
+                        Q8_noticedCues:         "",
+                      });
+                      setQ9Influence("");
+                      setShowRQDialog(true);
 
-                        setShowRQDialog(true);
                       }}
                       disabled={!canOpenRQ}
                       sx={{
@@ -1280,90 +1276,83 @@ const InterviewSimulator: React.FC = () => {
                         scrollbarWidth: "none",
                       }}
                     >
+                      {/* Q1 — Attribution */}
                       {[
                         {
-                          label: "Before seeing the confidence score, if the feedback seemed wrong, who would you blame?",
-                          key: "RQ1_blame_pre",
+                          label: "If you had concerns about the feedback, where do you think those concerns would most likely come from?",
+                          key: "Q1_blameTarget",
                           options: [
-                            { value: "system", label: "The AI system" },
-                            { value: "me", label: "My answer" },
-                            { value: "unsure", label: "Not sure" },
+                            { value: "1", label: "Definitely my answer" },
+                            { value: "2", label: "Probably my answer" },
+                            { value: "3", label: "Not sure" },
+                            { value: "4", label: "Probably the AI evaluation" },
+                            { value: "5", label: "Definitely the AI evaluation" },
                           ],
                         },
                         {
-                          label: "After seeing the confidence score and highlighted words, who do you think caused the issue?",
-                          key: "RQ1_blame_post",
+                          label: "After reading this feedback, how confident are you in your answer to this question?",
+                          key: "Q2_selfCompetence",
                           options: [
-                            { value: "system", label: "The AI system" },
-                            { value: "me", label: "My answer" },
-                            { value: "unsure", label: "Not sure" },
+                            { value: "1", label: "Not confident at all" },
+                            { value: "2", label: "Slightly confident" },
+                            { value: "3", label: "Moderately confident" },
+                            { value: "4", label: "Very confident" },
+                            { value: "5", label: "Extremely confident" },
                           ],
                         },
                         {
-                          label: "Would you use an AI interview feedback tool like this again?",
-                          key: "RQ1_reengageIntent",
+                          label: "How much do you trust the feedback provided for this question?",
+                          key: "Q3_trustChoice",
                           options: [
-                            { value: "yes", label: "Yes" },
-                            { value: "no", label: "No" },
-                            { value: "unsure", label: "Unsure" },
+                            { value: "1", label: "Not at all" },
+                            { value: "2", label: "Slightly" },
+                            { value: "3", label: "Moderately" },
+                            { value: "4", label: "Quite a lot" },
+                            { value: "5", label: "Completely" },
                           ],
                         },
                         {
-                          label: "Which feedback do you trust more?",
-                          key: "RQ2_trust",
+                          label: "Based on this experience, how likely would you be to use an AI interview coaching tool like this again?",
+                          key: "Q4_reengageIntent",
                           options: [
-                            { value: "A", label: "A" },
-                            { value: "B", label: "B" },
-                            { value: "both", label: "Both equally" },
-                            { value: "none", label: "Neither" },
+                            { value: "1", label: "Definitely not" },
+                            { value: "2", label: "Probably not" },
+                            { value: "3", label: "Unsure" },
+                            { value: "4", label: "Probably yes" },
+                            { value: "5", label: "Definitely yes" },
                           ],
                         },
                         {
-                          label: "Which feedback (if any) do you believe was incorrect?",
-                          key: "RQ2_errorDetection",
+                          label: "To what extent do you believe the feedback accurately reflected your answer?",
+                          key: "Q5_perceivedAccuracy",
                           options: [
-                            { value: "A", label: "A" },
-                            { value: "B", label: "B" },
-                            { value: "both", label: "Both" },
-                            { value: "none", label: "Neither" },
+                            { value: "1", label: "Not at all" },
+                            { value: "2", label: "Slightly" },
+                            { value: "3", label: "Moderately" },
+                            { value: "4", label: "Mostly" },
+                            { value: "5", label: "Completely" },
                           ],
                         },
                         {
-                          label: "After reading this feedback, how do you feel about your own interview performance?",
-                          key: "RQ2_selfCompetence",
+                          label: "How useful was Feedback A for understanding your performance?",
+                          key: "Q6_feedbackAUsefulness",
                           options: [
-                            { value: "more_confident", label: "More confident" },
-                            { value: "less_confident", label: "Less confident" },
-                            { value: "unchanged", label: "About the same" },
+                            { value: "1", label: "Not useful at all" },
+                            { value: "2", label: "Slightly useful" },
+                            { value: "3", label: "Moderately useful" },
+                            { value: "4", label: "Very useful" },
+                            { value: "5", label: "Extremely useful" },
                           ],
                         },
                         {
-                          label: "Did seeing the confidence score and highlighted words change how you felt about feedback that seemed wrong?",
-                          key: "RQ3_uncertaintyBuffer",
+                          label: "How useful was Feedback B for understanding your performance?",
+                          key: "Q7_feedbackBUsefulness",
                           options: [
-                            { value: "yes_less_bothered", label: "Yes — I was less bothered by it" },
-                            { value: "yes_less_trust", label: "Yes — I trusted it even less" },
-                            { value: "no_change", label: "No difference" },
-                          ],
-                        },
-                        {
-                          label: "Did any feedback seem to judge how you said something rather than what you meant?",
-                          key: "RQ3_fluencyEffect",
-                          options: [
-                            { value: "A", label: "Feedback A" },
-                            { value: "B", label: "Feedback B" },
-                            { value: "both", label: "Both" },
-                            { value: "no", label: "Neither" },
-                          ],
-                        },
-                        {
-                          label: "Overall, which feedback was clearer to read?",
-                          key: "clarity",
-                          options: [
-                            { value: "A", label: "A" },
-                            { value: "B", label: "B" },
-                            { value: "both", label: "Both equally" },
-                            { value: "none", label: "Neither" },
+                            { value: "1", label: "Not useful at all" },
+                            { value: "2", label: "Slightly useful" },
+                            { value: "3", label: "Moderately useful" },
+                            { value: "4", label: "Very useful" },
+                            { value: "5", label: "Extremely useful" },
                           ],
                         },
                       ].map((q) => (
@@ -1415,16 +1404,108 @@ const InterviewSimulator: React.FC = () => {
                           </RadioGroup>
                         </Box>
                       ))}
+
+                      {/* Q8 + Q9 — only when uncertainty=visible */}
+                      {currentFeedback.uncertainty === "visible" && (
+                        <>
+                          <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, my: 0.5 }}>
+                            <Box sx={{ flex: 1, height: "1px", backgroundColor: "#ddeaf5" }} />
+                            <Typography sx={{ fontSize: "0.7rem", color: "#99b4cc", fontWeight: 600, whiteSpace: "nowrap", letterSpacing: "0.05em" }}>
+                              ABOUT THE CONFIDENCE DISPLAY
+                            </Typography>
+                            <Box sx={{ flex: 1, height: "1px", backgroundColor: "#ddeaf5" }} />
+                          </Box>
+
+                          <Box
+                            sx={{
+                              p: 1.5,
+                              borderRadius: 3,
+                              backgroundColor: "#ffffffcc",
+                              border: "1px solid #e3ecf5",
+                              flexShrink: 0,
+                            }}
+                          >
+                            <Typography sx={{ fontSize: "0.9rem", fontWeight: 500, mb: 1, color: "#333" }}>
+                              Did you notice the confidence score or highlighted transcript words while reviewing the feedback?
+                            </Typography>
+                            <RadioGroup
+                              row
+                              value={rqAnswers.Q8_noticedCues}
+                              onChange={(e) => {
+                                const v = e.target.value;
+                                setRqAnswers((prev) => ({ ...prev, Q8_noticedCues: v }));
+                                if (v !== "yes") setQ9Influence("");
+                              }}
+                            >
+                              {[
+                                { value: "yes", label: "Yes" },
+                                { value: "no", label: "No" },
+                                { value: "not_sure", label: "Not sure" },
+                              ].map((opt) => (
+                                <FormControlLabel
+                                  key={opt.value}
+                                  value={opt.value}
+                                  control={<Radio size="small" />}
+                                  label={opt.label}
+                                  sx={{ mr: 2, "& .MuiFormControlLabel-label": { fontSize: "0.85rem" } }}
+                                />
+                              ))}
+                            </RadioGroup>
+
+                            {/* Q9 slides in under Q8 when "Yes" selected */}
+                            <Box
+                              sx={{
+                                overflow: "hidden",
+                                maxHeight: rqAnswers.Q8_noticedCues === "yes" ? "260px" : "0px",
+                                opacity: rqAnswers.Q8_noticedCues === "yes" ? 1 : 0,
+                                transition: "max-height 0.35s ease, opacity 0.25s ease",
+                                mt: rqAnswers.Q8_noticedCues === "yes" ? 1.5 : 0,
+                              }}
+                            >
+                              <Box sx={{ p: 1.5, borderRadius: 2, backgroundColor: "#edf4fb", border: "1px solid #c5dcf0" }}>
+                                <Typography sx={{ fontSize: "0.9rem", fontWeight: 500, mb: 1, color: "#1a4a6e" }}>
+                                  To what extent did the confidence score or highlighted words influence your interpretation of the feedback?
+                                </Typography>
+                                <RadioGroup
+                                  row
+                                  value={q9Influence}
+                                  onChange={(e) => setQ9Influence(e.target.value)}
+                                >
+                                  {[
+                                    { value: "1", label: "Not at all" },
+                                    { value: "2", label: "Slightly" },
+                                    { value: "3", label: "Moderately" },
+                                    { value: "4", label: "Strongly" },
+                                    { value: "5", label: "Very strongly" },
+                                  ].map((opt) => (
+                                    <FormControlLabel
+                                      key={opt.value}
+                                      value={opt.value}
+                                      control={<Radio size="small" />}
+                                      label={opt.label}
+                                      sx={{ mr: 2, "& .MuiFormControlLabel-label": { fontSize: "0.85rem", color: "#1a4a6e" } }}
+                                    />
+                                  ))}
+                                </RadioGroup>
+                              </Box>
+                            </Box>
+                          </Box>
+                        </>
+                      )}
                     </Box>
                   </Box>
                 </DialogContent>
 
                 <DialogActions sx={{ justifyContent: "center", pb: 2, flexDirection: "column", gap: 1 }}>
-
                   {(() => {
-                    const answered = Object.values(rqAnswers).filter(v => v !== "").length;
-                    const total = Object.keys(rqAnswers).length;
-                    const allDone = answered === total;
+                    const isVisible = currentFeedback.uncertainty === "visible";
+                    const q9Required = isVisible && rqAnswers.Q8_noticedCues === "yes";
+                    const baseAnswered = Object.values(rqAnswers).filter(v => v !== "").length;
+                    // Q8 not in count when hidden
+                    const adjustedAnswered = isVisible ? baseAnswered : baseAnswered - (rqAnswers.Q8_noticedCues !== "" ? 1 : 0);
+                    const answered = adjustedAnswered + (q9Influence !== "" ? 1 : 0);
+                    const total = 7 + (isVisible ? 1 : 0) + (q9Required ? 1 : 0);
+                    const allDone = answered >= total;
                     return !allDone ? (
                       <Typography variant="caption" sx={{ color: "#999" }}>
                         {answered} of {total} questions answered — scroll down to complete
@@ -1433,7 +1514,21 @@ const InterviewSimulator: React.FC = () => {
                   })()}
                   <Button
                     onClick={handleRQSubmit}
-                    disabled={isSubmittingRQ || Object.values(rqAnswers).some(v => v === "")}
+                    disabled={isSubmittingRQ || (() => {
+                      const isVisible = currentFeedback.uncertainty === "visible";
+                      const q9Required = isVisible && rqAnswers.Q8_noticedCues === "yes";
+                      const base = [
+                        rqAnswers.Q1_blameTarget,
+                        rqAnswers.Q2_selfCompetence,
+                        rqAnswers.Q3_trustChoice,
+                        rqAnswers.Q4_reengageIntent,
+                        rqAnswers.Q5_perceivedAccuracy,
+                        rqAnswers.Q6_feedbackAUsefulness,
+                        rqAnswers.Q7_feedbackBUsefulness,
+                      ];
+                      if (isVisible) base.push(rqAnswers.Q8_noticedCues);
+                      return base.some(v => !v) || (q9Required && !q9Influence);
+                    })()}
                     variant="contained"
                     sx={{
                       px: 4,

@@ -65,19 +65,19 @@ const IntroScreen: React.FC<IntroScreenProps> = ({ onBegin }) => {
             Welcome to PrepBot
           </Typography>
 
-          <Typography
-            variant="body2"
-            sx={{
-              color: "#555",
-              textAlign: "center",
-              lineHeight: 1.7,
-              px: 1,
-            }}
-          >
-            You are about to begin a simulated behavioural job interview.
-            Please answer each question as you would in a real interview.
-            Speak naturally (there are no right or wrong answers).
-          </Typography>
+         <Typography
+  variant="body2"
+  sx={{
+    color: "#555",
+    textAlign: "center",
+    lineHeight: 1.7,
+    px: 1,
+  }}
+>
+  You are about to begin a simulated behavioural interview.
+  Please answer each question as you would in a real interview and speak as naturally as possible.
+  There are no right or wrong answers—we are interested in your genuine responses.
+</Typography>
           <Box
             sx={{
               backgroundColor: "#f7faff",
@@ -97,43 +97,69 @@ const IntroScreen: React.FC<IntroScreenProps> = ({ onBegin }) => {
             </Typography>
 
             {[
-              {
-                icon: <MicIcon fontSize="small" sx={{ color: "#07466E", mt: 0.2, flexShrink: 0 }} />,
-                text: "You will be asked 6 questions. Record your spoken answer for each one.",
-              },
-              {
-                icon: (
-                  <Box sx={{ display: "flex", gap: 0.5, mt: 0.2, flexShrink: 0 }}>
-                    <RuleIcon fontSize="small" sx={{ color: "#d0873e" }} />
-                    <PsychologyIcon fontSize="small" sx={{ color: "#8cad12" }} />
-                  </Box>
-                ),
-                text: "After each answer, you will receive two AI feedback items: 'Feedback A' and 'Feedback B'. Read both the feedbacks carefully.",
-              },
-              {
-                icon: <FeedbackIcon fontSize="small" sx={{ color: "#6a1b9a", mt: 0.2, flexShrink: 0 }} />,
-                text: "You will then answer a short survey comparing the two feedback items.",
-              },
-            ].map((item, i) => (
-              <Box
-                key={i}
-                sx={{ display: "flex", alignItems: "flex-start", gap: 1.5 }}
-              >
-                {item.icon}
-                <Typography
-                  variant="body2"
-                  sx={{ color: "#444", lineHeight: 1.65 }}
-                >
-                  {item.text}
-                </Typography>
-              </Box>
-            ))}
+  {
+    icon: (
+      <MicIcon
+        fontSize="small"
+        sx={{ color: "#07466E", mt: 0.2, flexShrink: 0 }}
+      />
+    ),
+    text: "You will be asked 4 behavioural interview questions. Record your spoken answer for each question as naturally as you would in a real interview.",
+  },
+  {
+    icon: (
+      <Box
+        sx={{
+          display: "flex",
+          gap: 0.5,
+          mt: 0.2,
+          flexShrink: 0,
+        }}
+      >
+        <RuleIcon fontSize="small" sx={{ color: "#d0873e" }} />
+        <PsychologyIcon fontSize="small" sx={{ color: "#8cad12" }} />
+      </Box>
+    ),
+    text: "After each answer, you will receive two AI-generated feedback summaries: Structure Feedback and Intent Feedback. Please review both before continuing.",
+  },
+  {
+    icon: (
+      <FeedbackIcon
+        fontSize="small"
+        sx={{ color: "#6a1b9a", mt: 0.2, flexShrink: 0 }}
+      />
+    ),
+    text: "For some questions, additional information about the speech transcription quality (such as a confidence score and highlighted transcript words) may also be displayed.",
+  },
+  {
+    icon: (
+      <FeedbackIcon
+        fontSize="small"
+        sx={{ color: "#6a1b9a", mt: 0.2, flexShrink: 0 }}
+      />
+    ),
+    text: "After reviewing the feedback, you will complete a short questionnaire about your experience with the AI feedback before moving to the next question.",
+  },
+].map((item, i) => (
+  <Box
+    key={i}
+    sx={{ display: "flex", alignItems: "flex-start", gap: 1.5 }}
+  >
+    {item.icon}
+    <Typography
+      variant="body2"
+      sx={{ color: "#444", lineHeight: 1.65 }}
+    >
+      {item.text}
+    </Typography>
+  </Box>
+))}
           </Box>
           <Typography
             variant="caption"
             sx={{ color: "#999", textAlign: "center" }}
           >
-            Estimated time: 20–35 minutes
+            Estimated time: 15–25 minutes
           </Typography>
           <Button
             variant="contained"
