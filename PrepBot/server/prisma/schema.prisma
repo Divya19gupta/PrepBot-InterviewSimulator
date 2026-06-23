@@ -40,16 +40,17 @@ model Answer {
   errorCondition String?
   wrongExplanation String?
 
-  trustChoice    String?
-  blameTarget    String?
+  trustChoice Int?
+  blameTarget Int?
 
-  clarity       String?
-  bias          String?
-  trustReason   String?
-  reengageIntent    String?
-  selfCompetence    String?
+  perceivedAccuracy Int?
+  feedbackAUsefulness Int?
+  feedbackBUsefulness Int?
+  reengageIntent Int?
+  selfCompetence Int?
+
+  uncertaintyInfluence Int?
   uncertaintyBuffer String?
-  uncertaintyInfluence  String?
 
   audioFile String
   attempts  Int      @default(1)

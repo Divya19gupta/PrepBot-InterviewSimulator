@@ -238,11 +238,11 @@ router.post("/answer/feedback", async (req, res) => {
  
       reengageIntent,      // Q4 — re-engage (1–5)
  
-      bias,                // Q5 — perceived accuracy (1–5)
+      perceivedAccuracy,    // Q5 — perceived accuracy (1–5)
  
-      clarity,             // Q6 — Feedback A usefulness (1–5)
+      feedbackAUsefulness,  // Q6 — Feedback A usefulness (1–5)
  
-      trustReason,         // Q7 — Feedback B usefulness (1–5)
+      feedbackBUsefulness,         // Q7 — Feedback B usefulness (1–5)
  
       uncertaintyBuffer,   // Q8 — noticed cues? (yes/no/not_sure | null if hidden)
  
@@ -275,11 +275,11 @@ router.post("/answer/feedback", async (req, res) => {
  
         reengageIntent,
  
-        bias,
+        perceivedAccuracy,
  
-        clarity,
+        feedbackAUsefulness,
  
-        trustReason,
+        feedbackBUsefulness,
  
         uncertaintyBuffer,
  
