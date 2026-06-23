@@ -250,7 +250,6 @@ const InterviewSimulator: React.FC = () => {
   const startRecording = async () => {
     try {
       if (isLoading) return;
-
       if (streamRef.current) {
         streamRef.current.getTracks().forEach((track) => track.stop());
         streamRef.current = null;
@@ -260,6 +259,7 @@ const InterviewSimulator: React.FC = () => {
 
       setTranscript("");
       setLowConfidenceWords([]);
+      setHighlightFeedbackButtons(false);
 
       const newAttempts = [...attempts];
       newAttempts[currentIndex] += 1;
@@ -322,7 +322,7 @@ const InterviewSimulator: React.FC = () => {
 
     const attempt = attempts[index] + 1;
 
-    const fetchJSON = async (url: string, body: any, timeout = 20000) => {
+    const fetchJSON = async (url: string, body: any, timeout = 60000) => {
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), timeout);
 
@@ -752,7 +752,6 @@ if (baseRequired.some((v) => !v) || (q9Required && !q9Influence)) {
         });
       }
       else {
-        console.warn("Invalid feedback state, not marking viewed");
         return;
       }
     } catch (err) {
@@ -1472,7 +1471,6 @@ if (baseRequired.some((v) => !v) || (q9Required && !q9Influence)) {
                                   To what extent did the confidence score or highlighted words influence your interpretation of the feedback?
                                 </Typography>
                                 <RadioGroup
-                                  row
                                   value={q9Influence}
                                   onChange={(e) => setQ9Influence(e.target.value)}
                                 >
