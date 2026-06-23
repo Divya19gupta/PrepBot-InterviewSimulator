@@ -210,12 +210,22 @@ const InterviewSimulator: React.FC = () => {
               wrongExplanation: found.wrongExplanation || null,
               viewedFeedbackA: found.viewedFeedbackA || false,
               viewedFeedbackB: found.viewedFeedbackB || false,
+
               trustChoice: found.trustChoice || null,
+              blameTarget: found.blameTarget || null,
+              selfCompetence: found.selfCompetence || null,
+              perceivedAccuracy: found.perceivedAccuracy || null,
+              feedbackAUsefulness: found.feedbackAUsefulness || null,
+              feedbackBUsefulness: found.feedbackBUsefulness || null,
+              reengageIntent: found.reengageIntent || null,
+              uncertaintyBuffer: found.uncertaintyBuffer || null,
+              uncertaintyInfluence: found.uncertaintyInfluence || null,
+
               lowConfidenceWords: found.lowConfidenceWords || [],
               confidence: found.confidence,
               lowConfidenceRatio: found.lowConfidenceRatio || 0,
             };
-
+            
             attemptsArr[index] = found.attempts || 0;
           }
         });
@@ -231,6 +241,7 @@ const InterviewSimulator: React.FC = () => {
         if (answersMap.length > 0) {
           setShowIntro(false);
         }
+
       } catch (err: any) {
         console.error("Resume failed:", err);
         toast.error(err.message || "Failed to restore session");
@@ -589,19 +600,29 @@ if (baseRequired.some((v) => !v) || (q9Required && !q9Influence)) {
   const res = await fetch(`${API_URL}/api/session/answer/feedback`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      sessionId:            userData.sessionId,
-      questionIndex:        currentIndex,
-      blameTarget:          Q1_blameTarget,
-      selfCompetence:       Q2_selfCompetence,
-      trustChoice:          Q3_trustChoice,
-      reengageIntent:       Q4_reengageIntent,
-      bias:                 Q5_perceivedAccuracy,
-      clarity:              Q6_feedbackAUsefulness,
-      trustReason:          Q7_feedbackBUsefulness,
-      uncertaintyBuffer:    isUncertaintyVisible ? Q8_noticedCues : null,
-      uncertaintyInfluence: q9Required ? q9Influence : null,
-    }),
+   body: JSON.stringify({
+  sessionId: userData.sessionId,
+  questionIndex: currentIndex,
+
+  blameTarget: Number(Q1_blameTarget),
+  selfCompetence: Number(Q2_selfCompetence),
+  trustChoice: Number(Q3_trustChoice),
+  reengageIntent: Number(Q4_reengageIntent),
+
+  perceivedAccuracy: Number(Q5_perceivedAccuracy),
+  feedbackAUsefulness: Number(Q6_feedbackAUsefulness),
+  feedbackBUsefulness: Number(Q7_feedbackBUsefulness),
+
+  uncertaintyBuffer:
+    isUncertaintyVisible
+      ? Q8_noticedCues
+      : null,
+
+  uncertaintyInfluence:
+    q9Required
+      ? Number(q9Influence)
+      : null,
+})
   });
 
        if (!res.ok) {
@@ -614,7 +635,7 @@ if (baseRequired.some((v) => !v) || (q9Required && !q9Influence)) {
     const existing = updated[currentIndex] || {};
     updated[currentIndex] = {
       ...existing,
-      trustChoice: Q3_trustChoice,
+      trustChoice: Number(Q3_trustChoice),
     };
     return updated;
   });
@@ -1508,7 +1529,7 @@ if (baseRequired.some((v) => !v) || (q9Required && !q9Influence)) {
                     const allDone = answered >= total;
                     return !allDone ? (
                       <Typography variant="caption" sx={{ color: "#999" }}>
-                        {answered} of {total} questions answered — scroll down to complete
+                        {answered} of {total} questions answered (scroll down to complete)
                       </Typography>
                     ) : null;
                   })()}
@@ -1567,13 +1588,12 @@ if (baseRequired.some((v) => !v) || (q9Required && !q9Influence)) {
                 </DialogTitle>
                 <DialogContent>
                   <Typography sx={{ fontSize: "0.95rem", color: "#333", lineHeight: 1.7 }}>
-                    Thank you for completing the session. We can now inform you that during the
-                    study, one of the two feedback items for some questions may have contained a
-                    subtle evaluative error introduced by the researcher. This was necessary
+                    Thank you for completing the session. We can now inform you that some feedback presented during 
+                    the study <b>may have contained intentionally introduced evaluation inaccuracies</b>. This was necessary
                     because informing participants in advance could have influenced responses and
                     affected the study results.
                     <br /><br />
-                    Your data will be used solely for research purposes. If, after learning this
+                    Your data will be used <b>solely for research purposes</b>. If, after learning this
                     information, you would prefer to withdraw your participation or request
                     deletion of your data, or have any questions you may contact the researcher.
                   </Typography>

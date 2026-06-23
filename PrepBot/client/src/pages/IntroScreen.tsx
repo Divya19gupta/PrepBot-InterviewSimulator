@@ -76,7 +76,7 @@ const IntroScreen: React.FC<IntroScreenProps> = ({ onBegin }) => {
 >
   You are about to begin a simulated behavioural interview.
   Please answer each question as you would in a real interview and speak as naturally as possible.
-  There are no right or wrong answers—we are interested in your genuine responses.
+  There are <b>no right or wrong answers</b>. We are interested in your genuine responses.
 </Typography>
           <Box
             sx={{
@@ -120,7 +120,7 @@ const IntroScreen: React.FC<IntroScreenProps> = ({ onBegin }) => {
         <PsychologyIcon fontSize="small" sx={{ color: "#8cad12" }} />
       </Box>
     ),
-    text: "After each answer, you will receive two AI-generated feedback summaries: Structure Feedback and Intent Feedback. Please review both before continuing.",
+    text: "After each answer, you will receive two AI-generated feedback summaries: (A) Feedback and (B) Feedback. Please review both before continuing.",
   },
   {
     icon: (

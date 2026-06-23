@@ -176,7 +176,7 @@ const Home = () => {
                 }}
               >
                 <Typography variant="caption" sx={{ color: "#555" }}>
-                  Your Participant ID — please note this down:
+                  Your Participant ID (please note this down):
                 </Typography>
                 <Typography
                   variant="h5"
