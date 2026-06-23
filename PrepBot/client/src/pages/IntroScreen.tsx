@@ -9,12 +9,10 @@ import FeedbackIcon from "@mui/icons-material/Feedback";
 import WorkOutlineIcon from "@mui/icons-material/WorkOutline";
 
 import AIBackdrop from "./AIBackdrop";
+import { useNavigate } from "react-router-dom";
 
-interface IntroScreenProps {
-  onBegin: () => void;
-}
-
-const IntroScreen: React.FC<IntroScreenProps> = ({ onBegin }) => {
+const IntroScreen = () => {
+  const navigate = useNavigate();
     const [loading, setLoading] = useState(false);
   return (
     <Box
@@ -161,15 +159,16 @@ const IntroScreen: React.FC<IntroScreenProps> = ({ onBegin }) => {
           >
             Estimated time: 15–25 minutes
           </Typography>
-          <Button
-            variant="contained"
-            onClick={() => {
-            setLoading(true);
-            setTimeout(() => {
-                onBegin();
-            }, 1800);
-            }}
-            sx={{
+         <Button
+  variant="contained"
+  onClick={() => {
+    setLoading(true);
+
+    setTimeout(() => {
+      navigate("/interview");
+    }, 1800);
+  }}
+     sx={{
               backgroundColor: "#07466E",
               borderRadius: "18px",
               padding: "10px 20px",
@@ -177,10 +176,10 @@ const IntroScreen: React.FC<IntroScreenProps> = ({ onBegin }) => {
               fontWeight: "bold",
               "&:hover": { backgroundColor: "#063655" },
               mt: 0.5,
-            }}
-          >
-            Begin Interview
-          </Button>
+  }}
+>
+  Begin Interview
+</Button>
         
         </Box>
       </Container>

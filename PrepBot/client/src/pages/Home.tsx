@@ -111,7 +111,11 @@ const Home = () => {
       }
 
       await new Promise((resolve) => setTimeout(resolve, 600));
-      navigate("/interview");
+      if (existingSession) {
+        navigate("/interview");
+      } else {
+        navigate("/intro");
+      }
     } catch (err: any) {
       console.error("Session start error:", err);
       toast.error(err.message);

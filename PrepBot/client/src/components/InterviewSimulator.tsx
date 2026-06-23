@@ -32,7 +32,6 @@ import toast from "react-hot-toast";
 import AIBackdrop from "../pages/AIBackdrop";
 import RuleIcon from "@mui/icons-material/Rule";
 import PsychologyIcon from "@mui/icons-material/Psychology";
-import IntroScreen from "../pages/IntroScreen";
 
 const API_URL =
   import.meta.env.VITE_API_URL || "https://prepbot-server.onrender.com";
@@ -41,7 +40,6 @@ const TOTAL_QUESTIONS = 4;
 const InterviewSimulator: React.FC = () => {
   const navigate = useNavigate();
   const theme = useTheme();
-  const [showIntro, setShowIntro] = useState(true);
 
   const [userData, setUserData] = useState<any>(null);
   const [questions, setQuestions] = useState<string[]>([]);
@@ -236,11 +234,7 @@ const InterviewSimulator: React.FC = () => {
         setAttempts(attemptsArr);
 
         const safeIndex = data.currentIndex ?? 0;
-
         setCurrentIndex(safeIndex);
-        if (answersMap.length > 0) {
-          setShowIntro(false);
-        }
 
       } catch (err: any) {
         console.error("Resume failed:", err);
@@ -771,14 +765,6 @@ if (baseRequired.some((v) => !v) || (q9Required && !q9Influence)) {
   }
 
 
-  if (showIntro) {
-    return (
-      <IntroScreen
-        onBegin={() => setShowIntro(false)}
-      />
-    );
-  }
-
   return (
     <>
       <Box
@@ -978,7 +964,7 @@ if (baseRequired.some((v) => !v) || (q9Required && !q9Influence)) {
                   </span>
                 </Tooltip>
 
-                <Tooltip title="Structured feedback (A)">
+                <Tooltip title="Feedback (A)">
                   <span>
                     <IconButton
                       onClick={() => {
@@ -1015,7 +1001,7 @@ if (baseRequired.some((v) => !v) || (q9Required && !q9Influence)) {
                   </span>
                 </Tooltip>
 
-                <Tooltip title="Meaning-based feedback (B)">
+                <Tooltip title="Feedback (B)">
                   <span>
                     <IconButton
                       onClick={() => {
