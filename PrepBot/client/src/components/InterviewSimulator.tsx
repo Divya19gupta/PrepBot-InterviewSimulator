@@ -1385,7 +1385,6 @@ if (baseRequired.some((v) => !v) || (q9Required && !q9Influence)) {
                           </Typography>
 
                           <RadioGroup
-                            row
                             value={(rqAnswers as any)[q.key]}
                             onChange={(e) =>
                               setRqAnswers((prev) => ({
@@ -1436,7 +1435,6 @@ if (baseRequired.some((v) => !v) || (q9Required && !q9Influence)) {
                               Did you notice the confidence score or highlighted transcript words while reviewing the feedback?
                             </Typography>
                             <RadioGroup
-                              row
                               value={rqAnswers.Q8_noticedCues}
                               onChange={(e) => {
                                 const v = e.target.value;
