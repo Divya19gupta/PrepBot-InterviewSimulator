@@ -32,28 +32,35 @@ model Answer {
   question  String
 
   transcript String?
-  assemblyTranscriptId  String?
+  assemblyTranscriptId String?
 
   feedbackA String?
   feedbackB String?
   wrongExplanation String?
 
-  trustChoice    String?
-  blameTarget    String?
+  uncertainty String?
+  errorCondition String?
 
-  clarity       String?
-  bias          String?
-  trustReason   String?
-  reengageIntent    String?
-  selfCompetence    String?
+  trustChoice String?
+  blameTarget String?
+
+  selfCompetence String?
+  reengageIntent String?
+
+  perceivedAccuracy String?
+
+  feedbackAUsefulness String?
+  feedbackBUsefulness String?
+
   uncertaintyBuffer String?
+  uncertaintyInfluence String?
 
   audioFile String
-  attempts  Int      @default(1)
+  attempts Int @default(1)
 
-  confidence           Float?
-  lowConfidenceWords   Json?
-  lowConfidenceRatio   Float?
+  confidence Float?
+  lowConfidenceWords Json?
+  lowConfidenceRatio Float?
 
   viewedFeedbackA Boolean @default(false)
   viewedFeedbackB Boolean @default(false)

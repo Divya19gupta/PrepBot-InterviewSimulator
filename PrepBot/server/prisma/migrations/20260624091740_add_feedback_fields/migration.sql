@@ -1,0 +1,9 @@
+-- AlterTable
+ALTER TABLE "Answer" ALTER COLUMN "blameTarget" SET DATA TYPE TEXT,
+ALTER COLUMN "trustChoice" SET DATA TYPE TEXT,
+ALTER COLUMN "reengageIntent" SET DATA TYPE TEXT,
+ALTER COLUMN "selfCompetence" SET DATA TYPE TEXT,
+ALTER COLUMN "uncertaintyInfluence" SET DATA TYPE TEXT,
+ALTER COLUMN "feedbackAUsefulness" SET DATA TYPE TEXT,
+ALTER COLUMN "feedbackBUsefulness" SET DATA TYPE TEXT,
+ALTER COLUMN "perceivedAccuracy" SET DATA TYPE TEXT;
