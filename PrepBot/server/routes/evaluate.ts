@@ -125,7 +125,8 @@ router.post("/", async (req, res) => {
         await manipulateEvaluation(
           structureReference,
           condition.structureCriterion,
-          condition.wrongnessImplementation
+          condition.wrongnessImplementation,
+          answer
         );
 
       const structureValidation =
@@ -150,7 +151,8 @@ router.post("/", async (req, res) => {
         await manipulateEvaluation(
           intentReference,
           condition.intentCriterion,
-          condition.wrongnessImplementation
+          condition.wrongnessImplementation,
+          answer
         );
 
       const intentValidation =

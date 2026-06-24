@@ -119,8 +119,8 @@ export async function validateManipulation(
     }
 
     if (
-      before.evidence !==
-      after.evidence
+  before.evidence.trim().toLowerCase() !==
+  after.evidence.trim().toLowerCase()
     ) {
       return {
         valid: false,

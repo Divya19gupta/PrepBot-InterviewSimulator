@@ -36,20 +36,16 @@ model Answer {
 
   feedbackA String?
   feedbackB String?
-  uncertainty String?
-  errorCondition String?
   wrongExplanation String?
 
-  trustChoice Int?
-  blameTarget Int?
+  trustChoice    String?
+  blameTarget    String?
 
-  perceivedAccuracy Int?
-  feedbackAUsefulness Int?
-  feedbackBUsefulness Int?
-  reengageIntent Int?
-  selfCompetence Int?
-
-  uncertaintyInfluence Int?
+  clarity       String?
+  bias          String?
+  trustReason   String?
+  reengageIntent    String?
+  selfCompetence    String?
   uncertaintyBuffer String?
 
   audioFile String
