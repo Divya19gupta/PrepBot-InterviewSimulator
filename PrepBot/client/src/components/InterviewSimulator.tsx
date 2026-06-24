@@ -74,6 +74,12 @@ const InterviewSimulator: React.FC = () => {
   const streamRef = useRef<MediaStream | null>(null);
   const hasFetchedRef = useRef(false);
   const isMountedRef = useRef(true);
+  const recordingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const autoStopTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const MAX_RECORDING_MS = 120000; // 2 minutes
+  const [recordingElapsed, setRecordingElapsed] = useState(0);
+  const [autoStopped, setAutoStopped] = useState(false);
 
   const [lowConfidenceWords, setLowConfidenceWords] = useState<string[]>([]);
   const [processingStage, setProcessingStage] = useState<
@@ -147,12 +153,14 @@ const InterviewSimulator: React.FC = () => {
   const [highlightFeedbackButtons, setHighlightFeedbackButtons] = useState(false);
 
   useEffect(() => {
-    return () => {
-      isMountedRef.current = false;
-      mediaRecorderRef.current?.stop();
-      streamRef.current?.getTracks().forEach((t) => t.stop());
-    };
-  }, []);
+  return () => {
+    isMountedRef.current = false;
+    mediaRecorderRef.current?.stop();
+    streamRef.current?.getTracks().forEach((t) => t.stop());
+    if (recordingTimerRef.current) clearInterval(recordingTimerRef.current);
+    if (autoStopTimerRef.current) clearTimeout(autoStopTimerRef.current);
+  };
+}, []);
 
   useEffect(() => {
     if (hasFetchedRef.current) return;
@@ -282,7 +290,30 @@ const InterviewSimulator: React.FC = () => {
       };
 
       recorder.start();
-      setRecording(true);
+setRecording(true);
+setRecordingElapsed(0);
+setAutoStopped(false);
+
+recordingTimerRef.current = setInterval(() => {
+  setRecordingElapsed((prev) => prev + 1);
+}, 1000);
+
+autoStopTimerRef.current = setTimeout(() => {
+  setAutoStopped(true);
+  if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+    mediaRecorderRef.current.stop();
+  }
+  if (streamRef.current) {
+    streamRef.current.getTracks().forEach((track) => track.stop());
+    streamRef.current = null;
+  }
+  if (recordingTimerRef.current) {
+    clearInterval(recordingTimerRef.current);
+    recordingTimerRef.current = null;
+  }
+  setRecording(false);
+}, MAX_RECORDING_MS);
+
     } catch (err) {
       console.error("Mic access error:", err);
       setPopup({
@@ -294,17 +325,23 @@ const InterviewSimulator: React.FC = () => {
     }
   };
   const stopRecording = () => {
-    if (mediaRecorderRef.current && recording) {
-      mediaRecorderRef.current.stop();
-    }
-
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach((track) => track.stop());
-      streamRef.current = null;
-    }
-
-    setRecording(false);
-  };
+  if (mediaRecorderRef.current && recording) {
+    mediaRecorderRef.current.stop();
+  }
+  if (streamRef.current) {
+    streamRef.current.getTracks().forEach((track) => track.stop());
+    streamRef.current = null;
+  }
+  if (recordingTimerRef.current) {
+    clearInterval(recordingTimerRef.current);
+    recordingTimerRef.current = null;
+  }
+  if (autoStopTimerRef.current) {
+    clearTimeout(autoStopTimerRef.current);
+    autoStopTimerRef.current = null;
+  }
+  setRecording(false);
+};
 
   const handleRecordingStop = async () => {
     if (audioChunksRef.current.length === 0) return;
@@ -322,7 +359,7 @@ const InterviewSimulator: React.FC = () => {
 
     const attempt = attempts[index] + 1;
 
-    const fetchJSON = async (url: string, body: any, timeout = 60000) => {
+    const fetchJSON = async (url: string, body: any, timeout = 90000) => {
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), timeout);
 
@@ -470,6 +507,7 @@ const InterviewSimulator: React.FC = () => {
         setProcessingStage("idle");
         toast.success("Response recorded successfully.");
         setHighlightFeedbackButtons(true);
+        setAutoStopped(false);
       } catch (err: any) {
         console.error(err);
         setHighlightFeedbackButtons(false);
@@ -864,30 +902,64 @@ if (baseRequired.some((v) => !v) || (q9Required && !q9Influence)) {
                 />
               </Box>
 
-              <Box
-                sx={{
-                  height: 24,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  mb: 3,
-                }}
-              >
-                <Typography
-                  variant="body2"
-                  sx={{
-                    color: "red",
-                    opacity: recording ? 1 : 0,
-                    transition: "opacity 0.2s ease",
-                    transform: recording
-                      ? "translateY(0px)"
-                      : "translateY(4px)",
-                    transitionProperty: "opacity, transform",
-                  }}
-                >
-                  🎙️ Recording in progress...
-                </Typography>
-              </Box>
+             <Box
+  sx={{
+    height: 48,
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    justifyContent: "center",
+    mb: 1,
+    gap: 0.5,
+  }}
+>
+  <Typography
+    variant="body2"
+    sx={{
+      color: recordingElapsed >= 90 ? (recordingElapsed >= 110 ? "#e53935" : "#f57c00") : "#e53935",
+      fontWeight: 600,
+      fontFamily: "monospace",
+      fontSize: "0.95rem",
+      opacity: recording ? 1 : 0,
+      transition: "opacity 0.2s ease",
+    }}
+  >
+    {(() => {
+      const remaining = Math.max(0, MAX_RECORDING_MS / 1000 - recordingElapsed);
+      const elMin = String(Math.floor(recordingElapsed / 60)).padStart(2, "0");
+      const elSec = String(recordingElapsed % 60).padStart(2, "0");
+      const remMin = String(Math.floor(remaining / 60)).padStart(2, "0");
+      const remSec = String(Math.round(remaining) % 60).padStart(2, "0");
+      return `🎙️  ${elMin}:${elSec} / ${remMin}:${remSec} remaining`;
+    })()}
+  </Typography>
+
+  <Typography
+    variant="caption"
+    sx={{
+      color: recordingElapsed >= 110 ? "#e53935" : "#f57c00",
+      fontWeight: 600,
+      opacity: recording && recordingElapsed >= 90 ? 1 : 0,
+      transition: "opacity 0.3s ease",
+      fontSize: "0.75rem",
+    }}
+  >
+    {recordingElapsed >= 110 ? "⚠️ Recording stops in 10 seconds" : "⚠️ 30 seconds remaining"}
+  </Typography>
+
+  <Typography
+    variant="caption"
+    sx={{
+      color: "#555",
+      opacity: autoStopped && !recording ? 1 : 0,
+      transition: "opacity 0.3s ease",
+      fontSize: "0.78rem",
+      textAlign: "center",
+    }}
+  >
+    Recording stopped automatically, evaluating your response.
+  </Typography>
+</Box>
 
               <Box
                 sx={{
