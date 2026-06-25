@@ -1,70 +1,55 @@
-# 🎙️ PrepBot: AI Interview Simulator
+# 🎙️ PrepBot
 
-PrepBot is an AI-powered interview simulator that asks questions, records spoken answers, transcribes them using speech-to-text, and provides instant feedback using an LLM (e.g., Gemini or GPT).
+> 🚧 **Work in Progress**
+>
+> This repository contains the source code for **PrepBot**, an AI-powered interview simulator developed as part of my Master's thesis at **Saarland University**.
+>
+> The project is currently under active development and is not yet considered production-ready. Features, architecture, and documentation may change as the research progresses.
 
----
-## 🚀 Getting Started
+## About
 
-### 1. Clone the Repo
+PrepBot is an AI-powered behavioural interview simulator designed to investigate how users perceive and respond to AI-generated interview feedback.
 
-```bash
-git clone https://github.com/Divya19gupta/PrepBot.git
-cd PrepBot
-```
+The system allows participants to:
 
-### 2. Add Your API Keys 
+- 🎤 Record spoken interview responses
+- 📝 Automatically transcribe speech
+- 🤖 Receive AI-generated interview feedback
+- 📊 Complete research questionnaires after each interview question
+- 🔬 Participate in a controlled Human-Computer Interaction (HCI) study
 
-Create a `.env` file in the `server/` folder with the following format:
+The project is being developed as part of the following Master's thesis:
 
-```env
-GEMINI_API_KEY=your_gemini_key
-```
-Create your own Gemini API key: https://aistudio.google.com/app/apikey
-
-### 3. Install Whisper.cpp in the Project
-
-```cd server
-git clone https://github.com/ggerganov/whisper.cpp.git
-cd whisper.cpp
-make
-sh ./models/download-ggml-model.sh base.en
-cmake -B build
-```
-
-### 4. Run the App
-
-#### Backend
-
-```bash
-# In /server
-npm i
-npm run dev
-```
-
-#### Frontend
-
-```bash
-cd ../client
-npm i
-npm run dev
-```
----
-
-## 🛠 Features
-
-- 🎤 Voice recording with `MediaRecorder`
-- 🧠 Answer transcription (via Whisper API or whisper.cpp)
-- 🤖 AI feedback scoring using Gemini or GPT
-- 📊 Scored on clarity, relevance, structure, and confidence
+> **Trust Calibration, Fairness Perception, and Error Attribution in AI Interview Feedback Systems under Varying Linguistic Fluency Cues**
 
 ---
 
-## 📌 Notes
+## 🚧 Current Status
 
-- Be sure to **not commit your `.env`** file or `node_modules/`.
-- You can deploy this locally or host with services like Render, Railway, or Vercel.
+The project is still under active development.
+
+Current work includes:
+
+- ✅ Interview simulation interface
+- ✅ Speech transcription pipeline
+- ✅ AI feedback generation
+- ✅ Experimental study implementation
+- ✅ Data collection infrastructure
+- 🔄 Final testing and refinement
+- 🔄 Documentation improvements
 
 ---
-![image](https://github.com/user-attachments/assets/e04f2c66-a616-4152-bf05-17d0868b2c14)
 
+## Repository Status
 
+This repository is primarily intended for research and academic purposes.
+
+The codebase is still evolving and may undergo significant changes as the thesis progresses.
+
+---
+
+## License
+
+This repository accompanies a Master's thesis at Saarland University.
+
+Further documentation will be added after completion of the research project.
