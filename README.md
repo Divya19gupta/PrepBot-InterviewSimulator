@@ -18,10 +18,6 @@ The system allows participants to:
 - 📊 Complete research questionnaires after each interview question
 - 🔬 Participate in a controlled Human-Computer Interaction (HCI) study
 
-The project is being developed as part of the following Master's thesis:
-
-> **Trust Calibration, Fairness Perception, and Error Attribution in AI Interview Feedback Systems under Varying Linguistic Fluency Cues**
-
 ---
 
 ## 🚧 Current Status
