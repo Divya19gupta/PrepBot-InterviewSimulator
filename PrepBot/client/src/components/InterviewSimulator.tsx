@@ -1532,7 +1532,7 @@ if (baseRequired.some((v) => !v) || (q9Required && !q9Influence)) {
                             <Box
                               sx={{
                                 overflow: "hidden",
-                                maxHeight: rqAnswers.Q8_noticedCues === "yes" ? "260px" : "0px",
+                                maxHeight: rqAnswers.Q8_noticedCues === "yes" ? "360px" : "0px",
                                 opacity: rqAnswers.Q8_noticedCues === "yes" ? 1 : 0,
                                 transition: "max-height 0.35s ease, opacity 0.25s ease",
                                 mt: rqAnswers.Q8_noticedCues === "yes" ? 1.5 : 0,

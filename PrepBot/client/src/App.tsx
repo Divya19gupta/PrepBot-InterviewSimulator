@@ -1,4 +1,4 @@
-import { Routes, Route } from 'react-router-dom';
+import { Routes, Route, Navigate } from 'react-router-dom';
 import Home from './pages/Home';
 import Interview from './pages/Interview';
 import { Toaster } from 'react-hot-toast';
@@ -12,6 +12,7 @@ const App = () => {
       <Route path="/" element={<Home />} />
       <Route path="/intro" element={<IntroScreen />} />
       <Route path="/interview" element={<Interview />} />
+      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
     </>
   );
