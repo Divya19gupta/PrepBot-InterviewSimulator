@@ -6,6 +6,7 @@ import sessionRouter from "./routes/session";
 import evaluateRoute from "./routes/evaluate";
 import questionsRoute from "./routes/questions";
 import * as transcribeModule from "./routes/transcribe";
+import { prisma } from "./db";
 
 const transcribeRouter = transcribeModule.default;
 
@@ -19,8 +20,18 @@ app.use(cors({
   origin: process.env.FRONTEND_URL || "https://prepbot-interview-simulator.vercel.app"
 }));
 
-app.get("/health", (_, res) => {
-  res.status(200).send("OK");
+app.get("/health", async (_, res) => {
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+
+    res.json({
+      status: "ok",
+    });
+  } catch {
+    res.status(500).json({
+      status: "error",
+    });
+  }
 });
 
 app.use(bodyParser.json({ limit: "10mb" }));
