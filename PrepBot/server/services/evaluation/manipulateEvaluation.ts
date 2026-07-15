@@ -168,11 +168,27 @@ Changing more than one criterion will invalidate the experiment.
 
 If manipulation type is Selective Blindness
 
-• Remove one meaningful observation.
+You must perform a MECHANICAL text operation, not a creative rewrite.
 
-• Do not invent evidence.
+Step 1 — Copy the exact "evidence" string from the Reference Evaluation for this criterion, word for word.
 
-• Keep remaining judgement internally consistent.
+Step 2 — Identify ONE self-contained observation within that evidence (a clause, phrase, or sentence describing something specific the participant said or did).
+
+Step 3 — Produce the new "evidence" field by deleting ONLY that one observation from the copied string. Every remaining observation must preserve its original wording and meaning. Do not rewrite, strengthen, weaken, summarize, or paraphrase the remaining observations — literally delete the one observation and leave everything else untouched.
+
+Step 4 — Only after Step 3, decide whether "status" should change. Downgrade status ONLY as far as the remaining (post-deletion) evidence justifies, and no further.
+
+Step 5 — Rewrite ONLY the feedback for the assigned criterion.
+ - The feedback must be generated using ONLY the remaining evidence after Step 3.
+ - Do not mention any deleted observation.
+ - Do not introduce any new criticism.
+ - Do not infer weaknesses that are not supported by the remaining evidence.
+
+If the remaining evidence still supports a positive statement, keep it.
+FORBIDDEN — outputs matching either of these will always be rejected downstream:
+  - Changing only "status" while leaving "evidence" identical to the original (that is Misweighting, not Selective Blindness — do not do this here)
+  - Adding any new observation, judgment, or claim to "evidence" or "feedback" that was not in the original evaluation and does not follow strictly from removing one observation
+  - Removing only adjectives or individual words while keeping the same observation. One complete observation must disappear.
 
 Explanation requirements:
 
@@ -286,7 +302,23 @@ Examples:
 
 "The answer never explained which tools or systems were learned during the project. The original evaluation recognised this missing information and identified it as an area for improvement. The manipulated evaluation treated the criterion as sufficiently satisfied despite the missing details. As a result, the generated feedback becomes less likely to encourage the participant to explain the tools and methods they used."
 
+Before returning your answer, verify:
+
+✓ Exactly one observation has been removed.
+
+✓ The evidence is shorter than the original.
+
+✓ No remaining observation has been rewritten.
+
+✓ No new observation has been added.
+
+✓ No new criticism has been introduced.
+
+✓ Only the assigned criterion has changed.
+
+If any of the above are false, correct the manipulation before returning the JSON.
 --------------------------------------------------
+
 
 Return ONLY JSON
 
@@ -312,7 +344,7 @@ Return ONLY JSON
 
           model: MODEL,
 
-          temperature: 0.3,
+          temperature: 0.1,
 
           response_format: {
             type: "json_object",
@@ -369,9 +401,10 @@ if (typeof parsed.explanation !== "string") {
     : IntentEvaluationSchema.parse(evaluationJson);
 
 // Force original evidence — don't trust LLM to copy it exactly
+if (wrongness === "misweighting") {
 (validated.rubric as any)[criterion].evidence =
   (evaluation.rubric as any)[criterion].evidence;
-
+}
     // --------------------------------------------------
     // Semantic validation (moved in from evaluate.js route)
     // --------------------------------------------------
@@ -410,7 +443,8 @@ return {
       lastError = err;
 
       console.warn(
-        `Manipulation failed (Attempt ${attempt}/3)`
+        `Manipulation failed (Attempt ${attempt}/3)`,
+        err instanceof Error ? err.message : err
       );
 
       if (attempt < 3) {

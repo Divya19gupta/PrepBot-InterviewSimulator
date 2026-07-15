@@ -15,8 +15,8 @@ const app = express();
 const PORT = process.env.PORT || 3001;
 
 app.use(cors({
-  // origin: '*'
-  origin: process.env.FRONTEND_URL || "https://prepbot-interview-simulator.vercel.app"
+  origin: '*'
+  // origin: process.env.FRONTEND_URL || "https://prepbot-interview-simulator.vercel.app"
 }));
 
 app.use(bodyParser.json({ limit: "10mb" }));

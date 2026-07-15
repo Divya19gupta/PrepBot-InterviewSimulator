@@ -16,6 +16,8 @@ Your task is to evaluate ONLY the INTENT of the participant's response.
   the answer was organised into clear segments, sequenced logically, or presented
   as a complete narrative structure — a response can be relevant even if poorly
   organised, and irrelevant even if well organised.
+- It is acceptable and expected for a participant to receive a strong Intent evaluation but a weaker Structure evaluation, or vice versa.
+-Evaluate Intent independently of Structure.
 --------------------------------------------------
 Official Rubric
 --------------------------------------------------

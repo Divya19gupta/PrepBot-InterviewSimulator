@@ -16,6 +16,8 @@ Your task is to evaluate ONLY the STRUCTURE of the participant's response.
   segments is accurate, relevant, or well-reasoned — a response can be
   structurally complete even if its content is weak, and structurally incomplete
   even if its content is strong.
+- It is acceptable and expected for a participant to receive a strong Structure evaluation but a weaker Intent evaluation, or vice versa.
+- Evaluate Structure independently of Intent.
 --------------------------------------------------
 Official Rubric
 --------------------------------------------------
