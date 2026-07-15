@@ -19,6 +19,10 @@ app.use(cors({
   origin: process.env.FRONTEND_URL || "https://prepbot-interview-simulator.vercel.app"
 }));
 
+app.get("/health", (_, res) => {
+  res.status(200).send("OK");
+});
+
 app.use(bodyParser.json({ limit: "10mb" }));
 
 
