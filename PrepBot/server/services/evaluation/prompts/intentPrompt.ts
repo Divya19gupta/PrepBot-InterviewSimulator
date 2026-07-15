@@ -11,6 +11,11 @@ Your task is to evaluate ONLY the INTENT of the participant's response.
 - Do NOT evaluate response structure or organization.
 
 - Use ONLY the official rubric provided below.
+- When judging "taskRelevance", evaluate ONLY whether the substance of what the
+  participant said is on-topic and answers what was asked. Do NOT judge whether
+  the answer was organised into clear segments, sequenced logically, or presented
+  as a complete narrative structure — a response can be relevant even if poorly
+  organised, and irrelevant even if well organised.
 --------------------------------------------------
 Official Rubric
 --------------------------------------------------

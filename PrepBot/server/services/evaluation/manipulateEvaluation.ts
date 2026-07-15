@@ -15,6 +15,8 @@ import {
 import { structureRubric } from "./rubrics/structureRubric";
 import { intentRubric } from "./rubrics/intentRubric";
 
+import { validateManipulation } from "./validateManipulation";
+
 function clean(
   text: string
 ): string {
@@ -22,6 +24,61 @@ function clean(
     .replace(/```json/g, "")
     .replace(/```/g, "")
     .trim();
+}
+
+// --------------------------------------------------
+// Enum normalization
+// --------------------------------------------------
+// The LLM occasionally drops the space in status enums,
+// e.g. returning "PartiallySatisfied" instead of
+// "Partially Satisfied". Zod then rejects the whole
+// payload with an invalid_enum_value error even though
+// the rest of the object is fine. Normalize known
+// variants before validation so this doesn't burn a
+// retry attempt unnecessarily.
+
+function normalizeStatus(
+  value: unknown
+): unknown {
+
+  if (typeof value !== "string") return value;
+
+  const normalized = value
+    .trim()
+    .replace(/\s+/g, "")
+    .toLowerCase();
+
+  switch (normalized) {
+
+    case "satisfied":
+      return "Satisfied";
+
+    case "partiallysatisfied":
+      return "Partially Satisfied";
+
+    case "notsatisfied":
+      return "Not Satisfied";
+
+    default:
+      return value;
+  }
+}
+
+function normalizeEvaluation(
+  evaluationJson: any
+): any {
+  if (!evaluationJson?.rubric) return evaluationJson;
+
+  for (const key of Object.keys(evaluationJson.rubric)) {
+    const criterionObj = evaluationJson.rubric[key];
+    if (criterionObj && "status" in criterionObj) {
+      criterionObj.status = normalizeStatus(
+        criterionObj.status
+      );
+    }
+  }
+
+  return evaluationJson;
 }
 
 export interface ManipulationResult {
@@ -298,8 +355,12 @@ if (typeof parsed.explanation !== "string") {
     "Manipulation explanation missing."
   );
 }
+
+    // Normalize known enum-casing drift (e.g. "PartiallySatisfied"
+    // -> "Partially Satisfied") before schema validation, so this
+    // class of error doesn't waste a retry attempt.
     const evaluationJson =
-    parsed.evaluation;
+    normalizeEvaluation(parsed.evaluation);
 
     
     const validated: ReferenceEvaluation =
@@ -310,6 +371,34 @@ if (typeof parsed.explanation !== "string") {
 // Force original evidence — don't trust LLM to copy it exactly
 (validated.rubric as any)[criterion].evidence =
   (evaluation.rubric as any)[criterion].evidence;
+
+    // --------------------------------------------------
+    // Semantic validation (moved in from evaluate.js route)
+    // --------------------------------------------------
+    // Previously, validateManipulation() was called separately
+    // in the route AFTER manipulateEvaluation() had already
+    // returned successfully. A semantic failure there (e.g.
+    // "Selective Blindness requires omission of a meaningful
+    // observation, which is not present here") threw immediately
+    // with zero retries, killing the whole request with a 500.
+    //
+    // Now it's checked here, inside the same retry loop as the
+    // JSON/schema validation, so a semantic rejection just causes
+    // another generation attempt like any other validation failure.
+
+    const semanticCheck =
+      await validateManipulation(
+        evaluation,
+        validated,
+        criterion,
+        wrongness
+      );
+
+    if (!semanticCheck.valid) {
+      throw new Error(
+        `Semantic validation failed: ${semanticCheck.reason}`
+      );
+    }
 
 return {
   evaluation: validated,

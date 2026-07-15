@@ -10,6 +10,12 @@ Your task is to evaluate ONLY the STRUCTURE of the participant's response.
 
 - Do NOT evaluate the participant's intent, reasoning quality, or task relevance.
 - Use ONLY the official rubric provided below.
+- When judging "completeness" and "coverage", evaluate ONLY whether the expected
+  structural parts of an answer (e.g. context/situation, actions taken, outcome)
+  are present as distinct segments. Do NOT judge whether the content within those
+  segments is accurate, relevant, or well-reasoned — a response can be
+  structurally complete even if its content is weak, and structurally incomplete
+  even if its content is strong.
 --------------------------------------------------
 Official Rubric
 --------------------------------------------------

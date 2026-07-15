@@ -63,6 +63,12 @@ export async function getExperimentCondition(
       session.experimentVersion as keyof typeof EXPERIMENT_VERSION_MAP
     ];
 
+  if (!version) {
+    throw new Error(
+      `Unknown experiment version on session: ${session.experimentVersion}`
+    );
+  }
+
   const condition = version[questionIndex];
 
   if (!condition) {
@@ -72,10 +78,16 @@ export async function getExperimentCondition(
   }
 
   const structureCriteria =
-    session.structureCriteria as StructureCriterion[];
+    session.structureCriteria as StructureCriterion[] | null;
 
   const intentCriteria =
-    session.intentCriteria as IntentCriterion[];
+    session.intentCriteria as IntentCriterion[] | null;
+
+  if (!structureCriteria?.length || !intentCriteria?.length) {
+    throw new Error(
+      `Session ${sessionId} is missing assigned manipulation criteria.`
+    );
+  }
 
   /**
    * Number of Wrong questions encountered

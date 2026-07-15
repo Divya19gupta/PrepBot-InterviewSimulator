@@ -200,9 +200,16 @@ router.post("/answer", async (req, res) => {
     );
 
     if (uploaded && filePath) {
-      await supabase.storage
-        .from("interview-audios")
-        .remove([filePath]);
+      try {
+        await supabase.storage
+          .from("interview-audios")
+          .remove([filePath]);
+      } catch (cleanupErr) {
+        console.error(
+          "SAVE ERROR CLEANUP FAILED:",
+          cleanupErr
+        );
+      }
     }
 
     res.status(500).json({
