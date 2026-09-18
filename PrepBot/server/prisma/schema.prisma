@@ -1,6 +1,7 @@
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 generator client {
@@ -17,6 +18,7 @@ model Session {
   experimentVersion String
   wrongnessImplementation String
   structureCriteria String[]
+  versionControl String @default("unknown")
 
   intentCriteria String[]
   status       String   @default("in_progress")

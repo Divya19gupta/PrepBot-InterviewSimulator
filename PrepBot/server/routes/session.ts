@@ -2,6 +2,8 @@ import express from "express";
 import { prisma } from "../db";
 import { supabase } from "../supabaseClient";
 import { assignExperimentVersion } from "../services/evaluation/assignExperimentVersion";
+import { withAssignmentLock } from "../services/evaluation/assignmentLock";
+import { VERSION_CONTROL } from "../versionControl";
 
 const router = express.Router();
 
@@ -327,39 +329,50 @@ router.post("/start", async (req, res) => {
 
     const { userData } = req.body;
 
-    const assignment =
-      await assignExperimentVersion();
+    // The whole assign-then-save sequence runs inside the lock so a
+    // second concurrent request can't read the same "least-used cell"
+    // counts before this one has finished saving.
+    const assignment = await withAssignmentLock(async () => {
 
-    await prisma.session.create({
+      const result =
+        await assignExperimentVersion();
 
-      data: {
+      await prisma.session.create({
 
-        id:
-          userData.sessionId,
+        data: {
 
-        userId:
-          userData.userId,
+          id:
+            userData.sessionId,
 
-        participantId:
-          userData.participantId,
+          userId:
+            userData.userId,
 
-        language:
-          userData.language || "en",
+          participantId:
+            userData.participantId,
 
-        experimentVersion:
-          assignment.version,
+          language:
+            userData.language || "en",
 
-        wrongnessImplementation:
-          assignment.wrongnessImplementation,
+          experimentVersion:
+            result.version,
 
-        structureCriteria:
-          assignment.structureCriteria,
+          wrongnessImplementation:
+            result.wrongnessImplementation,
 
-        intentCriteria:
-          assignment.intentCriteria,
+          structureCriteria:
+            result.structureCriteria,
 
-      },
+          intentCriteria:
+            result.intentCriteria,
 
+          versionControl:
+            VERSION_CONTROL.versionControl,
+
+        },
+
+      });
+
+      return result;
     });
 
     res.json({

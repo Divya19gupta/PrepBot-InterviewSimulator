@@ -5,6 +5,6 @@ const client = new OpenAI({
 });
 
 export const MODEL =
-  process.env.OPENAI_MODEL || "gpt-4.1";
+  process.env.OPENAI_MODEL || "gpt-4.1-2025-04-14";
 
 export default client;

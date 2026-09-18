@@ -17,7 +17,27 @@ function cleanJson(text: string): string {
     .replace(/```/g, "")
     .trim();
 }
+function normalizeStatus(value: unknown): unknown {
+  if (typeof value !== "string") return value;
+  const normalized = value.trim().replace(/\s+/g, "").toLowerCase();
+  switch (normalized) {
+    case "satisfied": return "Satisfied";
+    case "partiallysatisfied": return "Partially Satisfied";
+    case "notsatisfied": return "Not Satisfied";
+    default: return value;
+  }
+}
 
+function normalizeEvaluation(evaluationJson: any): any {
+  if (!evaluationJson?.rubric) return evaluationJson;
+  for (const key of Object.keys(evaluationJson.rubric)) {
+    const criterionObj = evaluationJson.rubric[key];
+    if (criterionObj && "status" in criterionObj) {
+      criterionObj.status = normalizeStatus(criterionObj.status);
+    }
+  }
+  return evaluationJson;
+}
 export async function generateReferenceEvaluation(
   question: string,
   answer: string,
@@ -43,7 +63,7 @@ const prompt =
 
   let lastError: unknown;
 
-  for (let attempt = 1; attempt <= 3; attempt++) {
+  for (let attempt = 1; attempt <= 5; attempt++) {
     try {
       const completion = await client.chat.completions.create({
         model: MODEL,
@@ -73,21 +93,21 @@ const prompt =
     const cleaned = cleanJson(raw);
 
     const parsed = JSON.parse(cleaned);
-
+    const normalized = normalizeEvaluation(parsed);
       const validated =
         evaluationLogic === "structure"
-          ? StructureEvaluationSchema.parse(parsed)
-          : IntentEvaluationSchema.parse(parsed);
+          ? StructureEvaluationSchema.parse(normalized)
+          : IntentEvaluationSchema.parse(normalized);
 
       return validated;
     } catch (err) {
       lastError = err;
 
       console.warn(
-        `Reference evaluation failed (Attempt ${attempt}/3)`
+        `Reference evaluation failed (Attempt ${attempt}/5)`
       );
 
-      if (attempt < 3) {
+      if (attempt < 5) {
         await new Promise((resolve) =>
           setTimeout(resolve, 600)
         );
@@ -98,6 +118,6 @@ const prompt =
   console.error(lastError);
 
   throw new Error(
-    "Failed to generate a valid Reference Evaluation after 3 attempts."
+    "Failed to generate a valid Reference Evaluation after 5 attempts."
   );
 }

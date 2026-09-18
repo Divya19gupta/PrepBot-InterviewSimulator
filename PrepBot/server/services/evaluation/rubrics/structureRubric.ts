@@ -3,57 +3,67 @@
 export const structureRubric = {
   completeness: {
     definition:
-      "Evaluates whether all major parts requested by the interview question are addressed.",
-
+      "Evaluates ONLY whether the response has the expected narrative " +
+      "shape — a beginning (situation/context), a middle (actions taken), " +
+      "and an end (outcome/result) — as distinct segments. This is about " +
+      "the SHAPE of the story, not whether every sub-question in the " +
+      "interview question was specifically answered (that is coverage's " +
+      "job), and not the order or elaboration of the segments (that is " +
+      "organization's and development's job).",
     satisfied:
-      "All major parts requested in the question are addressed.",
-
+      "The response has a clear beginning, middle, and end as distinct segments.",
     partiallySatisfied:
-      "Most major parts are addressed, but one or more important parts are missing.",
-
+      "One of the three narrative segments (beginning, middle, or end) is missing or unclear.",
     notSatisfied:
-      "Several important parts requested in the question are missing."
+      "Two or more of the three narrative segments are missing.",
   },
 
   organization: {
     definition:
-      "Evaluates whether the response follows a logical and coherent sequence.",
-
+      "Evaluates ONLY the ORDER in which ideas are presented — whether " +
+      "the sequence is logical and transitions between ideas are clear. " +
+      "This is NOT about whether any part is missing (that is " +
+      "completeness's and coverage's job), and NOT about how much detail " +
+      "each idea received (that is development's job). A response can be " +
+      "perfectly ordered even if it is incomplete or undeveloped.",
     satisfied:
-      "Ideas are presented in a clear, logical order.",
-
+      "Ideas are presented in a clear, logical sequence with smooth transitions.",
     partiallySatisfied:
-      "The overall flow is understandable but contains some jumps or inconsistencies.",
-
+      "The sequence is mostly logical but contains some jumps or unclear transitions.",
     notSatisfied:
-      "The response lacks a logical structure and is difficult to follow."
+      "Ideas are presented out of order or without any clear transitions.",
   },
 
   development: {
     definition:
-      "Evaluates whether ideas are sufficiently explained and elaborated.",
-
+      "Evaluates ONLY how much elaboration or explanatory detail each " +
+      "idea received — is it a bare mention or is it expanded on. This " +
+      "is NOT about whether any part is missing (completeness/coverage's " +
+      "job), and NOT about the order ideas appear in (organization's " +
+      "job). A response can be well-developed even if poorly sequenced.",
     satisfied:
-      "Ideas are developed with enough explanation and detail.",
-
+      "Ideas are expanded on with meaningful explanatory detail, not just named.",
     partiallySatisfied:
-      "Some ideas are explained, but important details are missing.",
-
+      "Some ideas are expanded on, others are only briefly named.",
     notSatisfied:
-      "Ideas are only briefly mentioned with little explanation."
+      "Ideas are only briefly named with no expansion or explanation.",
   },
 
   coverage: {
     definition:
-      "Evaluates whether the response covers the full scope of the interview question.",
-
+      "Evaluates ONLY whether every distinct sub-question the INTERVIEW " +
+      "QUESTION explicitly asked for was specifically answered — treat " +
+      "the interview question as a checklist of sub-parts (e.g. 'what " +
+      "happened', 'how did you handle it', 'what was the outcome' are " +
+      "three separate sub-parts). This is NOT about narrative shape " +
+      "(completeness's job) — a response can have a complete " +
+      "beginning/middle/end shape while still skipping one of the " +
+      "specific sub-questions asked, and vice versa.",
     satisfied:
-      "The response addresses all important aspects of the question.",
-
+      "Every distinct sub-question the interview question asked for was specifically answered.",
     partiallySatisfied:
-      "The response covers most aspects but omits at least one important area.",
-
+      "Most sub-questions were answered, but at least one was skipped or unanswered.",
     notSatisfied:
-      "The response addresses only a small portion of what was requested."
-  }
+      "Most of the sub-questions the interview question asked for were not answered.",
+  },
 } as const;

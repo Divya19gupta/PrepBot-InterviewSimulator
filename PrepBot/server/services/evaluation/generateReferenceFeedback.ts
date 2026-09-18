@@ -1,264 +1,134 @@
 import { ReferenceEvaluation } from "./referenceEvaluationTypes";
 import client, { MODEL } from "../openai";
+import { validateNoLeakInFinalText } from "./validateManipulation";
+
 function clean(text: string): string {
-  return text
-    .replace(/```/g, "")
-    .trim();
+  return text.replace(/```/g, "").trim();
 }
 
-export async function generateReferenceFeedback(
-  evaluation: ReferenceEvaluation
+function buildSmoothingPrompt(
+  sentences: string[],
+  avoidFact: string | null,
+  retryFeedback: string
+): string {
+  return `You are given 4 sentences. Each one is already finalized and correct — do not judge, verify, evaluate, or reconsider any of them.
+
+Your ONLY task is smoothing: fix capitalization at sentence boundaries, vary the transition words so they don't repeat mechanically, and lightly merge sentences where it reads more naturally — but the specific fact and verdict in each sentence must still clearly appear in your output, unchanged in meaning.
+
+Do NOT add any new observation, judgment, or claim.
+Do NOT remove any observation.
+Do NOT soften a negative sentence or inflate a positive one.
+Do NOT imply a cause-and-effect relationship between sentences that wasn't already stated.
+Do NOT reorder the sentences.
+${
+  avoidFact
+    ? `\nCRITICAL — a piece of information was deliberately excluded from this evaluation as part of a research study. Under no circumstances may your output mention, restate, imply, or hint at the following, even indirectly or in different wording:\n\n${avoidFact}\n\nStay strictly within the 4 sentences given below. Do not draw on outside knowledge of the participant's answer to fill in what was left out.\n`
+    : ""
+}
+${retryFeedback}
+
+Sentences:
+1. ${sentences[0]}
+2. ${sentences[1]}
+3. ${sentences[2]}
+4. ${sentences[3]}
+
+Return ONLY the smoothed paragraph, nothing else.`;
+}
+
+async function smooth(
+  sentences: string[],
+  avoidFact: string | null
 ): Promise<string> {
 
-  const prompt =
-  evaluation.evaluationLogic === "structure"
-    ? structureFeedbackPrompt(evaluation)
-    : intentFeedbackPrompt(evaluation);
-//   const prompt = `
-// You are an expert behavioural interview coach.
-
-// You are given a structured reference evaluation that has already been completed.
-
-// Your task is to convert the evaluation into participant-facing feedback.
-
-// IMPORTANT RULES
-
-// - Do NOT invent new observations.
-// - Do NOT introduce new strengths.
-// - Do NOT introduce new weaknesses.
-// - Do NOT reinterpret the evaluation.
-// - Do not infer information that is not explicitly present in the evaluation.
-// - Preserve the meaning of every criterion.
-// - Write naturally and professionally.
-// - Do not mention rubric names.
-// - Do not mention evaluation labels such as 'Satisfied', 'Partially Satisfied', or 'Not Satisfied'.
-// - Do not mention JSON.
-// - Do not mention "evaluation".
-
-// The feedback should:
-
-// IMPORTANT
-
-// The evaluation may have one of two evaluation logics:
-
-// 1. Structure
-// 2. Intent
-
-// If the evaluationLogic is "structure":
-
-// - Write as an experienced communication coach.
-// - The participant should feel they are receiving feedback about HOW they communicated their answer rather than WHAT they said.
-
-// - Prioritise comments about:
-// • organisation
-// • clarity
-// • logical flow
-// • coherence
-// • sequencing of ideas
-// • development of explanations
-// • ease of following the response
-
-// - Discuss communication strengths before mentioning missing detail.
-// - Only mention missing information when it directly affects the clarity or completeness of the explanation.
-// - Do not evaluate reasoning quality, supporting evidence, justification, or whether the interview question was fully answered.
-
-// If the evaluationLogic is "intent":
-// - Write as an experienced interviewer.
-// - The participant should feel they are receiving feedback about the QUALITY of their answer rather than how it was communicated.
-
-// - Prioritise comments about:
-// • answering the interview question
-// • relevance
-// • reasoning
-// • supporting evidence
-// • examples
-// • justification
-// • achievement of the interview objective
-
-// - Discuss content strengths before suggesting additional examples or reasoning.
-// - Do not comment on organisation, communication style, sequencing, or presentation unless they prevented understanding the answer.
-
-// • When referencing what the participant said, paraphrase rather than quoting the exact same wording that would appear in the other feedback variant.
-// • The feedback styles should feel noticeably different while remaining equally professional — a reader should be able to tell the two apart without being told which is which.
-
-// • Begin with one short overall summary.
-
-// • Then describe the participant's strengths.
-
-// • Then describe areas for improvement.
-
-// • Finish with one short encouraging sentence.
-
-// Reference Evaluation
-
-// ${JSON.stringify(evaluation, null, 2)}
-
-// Return ONLY the feedback text.
-// `;
-
   let lastError: unknown;
+  let retryFeedback = "";
 
   for (let attempt = 1; attempt <= 3; attempt++) {
     try {
 
       const completion = await client.chat.completions.create({
-
         model: MODEL,
-
-        temperature: 0.2,
-
+        temperature: 0.1,
         messages: [
-
-         {
-  role: "system",
-  content:
-    "You generate participant-facing interview feedback while preserving the meaning of the provided structured evaluation. Never invent observations or alter the evaluation.",
-},
-
+          {
+            role: "system",
+            content:
+              "You lightly smooth already-finalized sentences into flowing prose. You never judge, verify, or reconsider their content.",
+          },
           {
             role: "user",
-            content: prompt,
+            content: buildSmoothingPrompt(sentences, avoidFact, retryFeedback),
           },
         ],
       });
 
       const feedback = completion.choices[0].message.content;
+      if (!feedback) throw new Error("Empty feedback.");
+      const cleaned = clean(feedback);
 
-      if (!feedback) {
-        throw new Error("Empty feedback.");
+      // If this text isn't allowed to mention a specific hidden fact,
+      // check it before returning — and retry with concrete feedback
+      // if it slipped through, instead of giving up immediately.
+      if (avoidFact) {
+        const leakCheck = await validateNoLeakInFinalText(
+          avoidFact,
+          cleaned
+        );
+
+        if (!leakCheck.valid) {
+          throw new Error(
+            `Smoothed text revealed the excluded fact: ${leakCheck.reason}`
+          );
+        }
       }
 
-      return clean(feedback);
+      return cleaned;
 
     } catch (err) {
-
       lastError = err;
+      console.warn(`Smoothing failed (Attempt ${attempt}/3)`, err);
 
-      console.warn(
-        `Reference feedback failed (Attempt ${attempt}/3)`
-      );
+      if (avoidFact && err instanceof Error && err.message.startsWith("Smoothed text revealed")) {
+        retryFeedback = `\nYour previous attempt failed because: ${err.message}\nTry again — smooth the same 4 sentences, but this time make absolutely sure the excluded fact described above does not appear anywhere in your output, even implicitly.\n`;
+      }
 
       if (attempt < 3) {
-        await new Promise((resolve) =>
-          setTimeout(resolve, 600)
-        );
+        await new Promise((resolve) => setTimeout(resolve, 600));
       }
     }
   }
 
   console.error(lastError);
+  throw new Error("Failed to smooth participant feedback without leaking the excluded fact.");
+}
 
-  throw new Error(
-    "Failed to generate participant feedback."
+export async function generateReferenceFeedback(
+  evaluation: ReferenceEvaluation,
+  avoidFact: string | null = null
+): Promise<string> {
+
+  if (evaluation.evaluationLogic === "structure") {
+    const r = evaluation.rubric;
+    return smooth(
+      [
+        r.completeness.feedback,
+        r.organization.feedback,
+        r.development.feedback,
+        r.coverage.feedback,
+      ],
+      avoidFact
+    );
+  }
+
+  const r = evaluation.rubric;
+  return smooth(
+    [
+      r.taskRelevance.feedback,
+      r.supportingEvidence.feedback,
+      r.reasoning.feedback,
+      r.goalFulfilment.feedback,
+    ],
+    avoidFact
   );
-}
-function structureFeedbackPrompt(
-  evaluation: ReferenceEvaluation
-): string {
-
-  return `
-You are an AI interview coach.
-
-A structured interview evaluation has already been completed.
-
-Your task is to convert that evaluation into participant-facing feedback.
-
-IMPORTANT RULES
-
-- Do NOT invent new observations.
-- Do NOT introduce new strengths.
-- Do NOT introduce new weaknesses.
-- Do NOT reinterpret the evaluation.
-- Preserve the meaning of every criterion.
-- Do not mention rubric names.
-- Do not mention evaluation labels such as "Satisfied", "Partially Satisfied", or "Not Satisfied".
-- Do not mention JSON or the evaluation process.
-
-Your primary perspective is communication quality.
-
-The participant should feel they are receiving feedback about HOW they communicated their answer rather than WHAT they said.
-
-When writing the feedback, naturally emphasise:
-
-• organisation
-• logical flow
-• clarity of explanation
-• coherence between ideas
-• completeness of the explanation
-• development of ideas
-• ease of following the response
-
-If content is missing, mention it only when it affects the completeness or clarity of the explanation.
-
-Do not make the quality of the participant's reasoning, supporting evidence, or relevance to the interview question the primary focus unless it is explicitly reflected in the evaluation.
-
-The feedback should:
-
-• Begin with one short overall summary.
-
-• Then describe the participant's strengths.
-
-• Then describe areas for improvement.
-
-• Finish with one short encouraging sentence.
-
-Reference Evaluation
-
-${JSON.stringify(evaluation, null, 2)}
-
-Return ONLY the feedback text.
-`;
-}
-function intentFeedbackPrompt(
-  evaluation: ReferenceEvaluation
-): string {
-
-  return `
-You are an AI interview coach.
-
-A structured interview evaluation has already been completed.
-
-Your task is to convert that evaluation into participant-facing feedback.
-
-IMPORTANT RULES
-
-- Do NOT invent new observations.
-- Do NOT introduce new strengths.
-- Do NOT introduce new weaknesses.
-- Do NOT reinterpret the evaluation.
-- Preserve the meaning of every criterion.
-- Do not mention rubric names.
-- Do not mention evaluation labels such as "Satisfied", "Partially Satisfied", or "Not Satisfied".
-- Do not mention JSON or the evaluation process.
-
-Your primary perspective is response quality.
-
-The participant should feel they are receiving feedback about WHAT they said rather than HOW they communicated it.
-
-When writing the feedback, naturally emphasise:
-
-• relevance to the interview question
-• supporting evidence
-• reasoning
-• justification of decisions
-• achievement of the interview objective
-
-Do not make communication style, organisation, sequencing, or presentation the primary focus unless it is explicitly reflected in the evaluation.
-
-The feedback should:
-
-• Begin with one short overall summary.
-
-• Then describe the participant's strengths.
-
-• Then describe areas for improvement.
-
-• Finish with one short encouraging sentence.
-
-Reference Evaluation
-
-${JSON.stringify(evaluation, null, 2)}
-
-Return ONLY the feedback text.
-`;
 }

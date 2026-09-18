@@ -101,6 +101,9 @@ router.post("/", async (req, res) => {
     let wrongExplanation: string | null =
       null;
 
+    let structureExplanation: string | null = null;
+    let intentExplanation: string | null = null;
+
     //--------------------------------------------------
     // Manipulate if assigned to Wrong condition
     //--------------------------------------------------
@@ -118,23 +121,17 @@ router.post("/", async (req, res) => {
 
       // NOTE: validateManipulation is no longer called separately here.
       // manipulateEvaluation() now performs generation AND semantic
-      // validation together, inside its own retry loop. Previously,
-      // a semantic validation failure (e.g. "Selective Blindness requires
-      // omission...") threw immediately with zero retries, killing the
-      // whole request with a 500. Now it's treated as just another
-      // reason to retry generation, same as a malformed JSON/schema error.
+      // validation together, inside its own retry loop, including a
+      // contradiction check against the other 3 criteria — up to 5 tries,
+      // with the model warned upfront (not just corrected after failing).
       //
-      // We also wrap the whole manipulation step in a try/catch so that
-      // if all retries are exhausted, we gracefully fall back to serving
-      // the unmanipulated reference evaluation instead of failing the
-      // participant's request outright. The trial is flagged in logs
-      // for manual exclusion from analysis.
+      // Structure and Intent MUST succeed or fail together as one unit.
+      // A "Wrong" trial means BOTH feedback summaries contain the
+      // manipulation (per the ERB description) — there is no valid
+      // state where one side is manipulated and the other isn't, so
+      // this stays a single shared try/catch, not independent ones.
 
       try {
-
-        //------------------------------
-        // Structure
-        //------------------------------
 
         const manipulatedStructure =
           await manipulateEvaluation(
@@ -143,10 +140,6 @@ router.post("/", async (req, res) => {
             condition.wrongnessImplementation,
             answer
           );
-
-        //------------------------------
-        // Intent
-        //------------------------------
 
         const manipulatedIntent =
           await manipulateEvaluation(
@@ -162,6 +155,14 @@ router.post("/", async (req, res) => {
         intentEvaluation =
           manipulatedIntent.evaluation;
 
+        if (condition.wrongnessImplementation === "selectiveBlindness") {
+          structureExplanation =
+            manipulatedStructure.explanation;
+
+          intentExplanation =
+            manipulatedIntent.explanation;
+        }
+
         wrongExplanation = `Structure:
 ${manipulatedStructure.explanation}
 
@@ -170,16 +171,15 @@ ${manipulatedIntent.explanation}`;
 
       } catch (manipulationErr) {
 
-        // Fallback: serve the unmanipulated reference evaluations
-        // (structureEvaluation / intentEvaluation already default to
-        // structureReference / intentReference above) so the participant
-        // is never stuck on a dead request. Flag this trial clearly in
-        // logs so it can be excluded from analysis, since the assigned
-        // "wrong" condition was not actually delivered.
+        // Fallback: serve the unmanipulated reference evaluations for
+        // BOTH sides together (structureEvaluation / intentEvaluation
+        // already default to structureReference / intentReference
+        // above), so the participant is never stuck on a dead request
+        // and never ends up in a half-Wrong, half-Correct state.
 
         console.error(
           `[MANIPULATION_FALLBACK] session=${sessionId} questionIndex=${questionIndex} ` +
-          `— manipulation failed after retries, falling back to reference evaluation. ` +
+          `— manipulation failed after retries, falling back to reference evaluation for both sides. ` +
           `Flag this trial for exclusion.`,
           manipulationErr
         );
@@ -192,16 +192,47 @@ ${manipulatedIntent.explanation}`;
     //--------------------------------------------------
     // Generate participant-facing feedback
     //--------------------------------------------------
+    // Same rule as the manipulation step above: if smoothing can't
+    // safely avoid leaking the hidden fact on EITHER side after its
+    // retries, BOTH sides fall back to reference feedback together —
+    // otherwise the participant could see one side that reads as
+    // genuinely wrong and one side that reads as correct, inside a
+    // trial that's supposed to be uniformly "Wrong."
 
-    const feedbackA =
-      await generateReferenceFeedback(
-        structureEvaluation
+    let feedbackA: string;
+    let feedbackB: string;
+
+    try {
+      feedbackA =
+        await generateReferenceFeedback(
+          structureEvaluation,
+          structureExplanation
+        );
+
+      feedbackB =
+        await generateReferenceFeedback(
+          intentEvaluation,
+          intentExplanation
+        );
+
+    } catch (smoothingErr) {
+
+      console.error(
+        `[SMOOTHING_LEAK_UNRESOLVED] session=${sessionId} questionIndex=${questionIndex} ` +
+        `— smoothing could not avoid the excluded fact after retries on at least one side, ` +
+        `falling back to reference feedback for BOTH sides. Flag this trial for exclusion.`,
+        smoothingErr
       );
 
-    const feedbackB =
-      await generateReferenceFeedback(
-        intentEvaluation
-      );
+      feedbackA =
+        await generateReferenceFeedback(structureReference);
+      feedbackB =
+        await generateReferenceFeedback(intentReference);
+
+      wrongExplanation =
+        (wrongExplanation || "") +
+        "\n\n[SMOOTHING_LEAK_UNRESOLVED_FALLBACK_TO_REFERENCE]";
+    }
 
     //--------------------------------------------------
     // Return response

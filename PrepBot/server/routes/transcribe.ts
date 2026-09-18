@@ -1,5 +1,6 @@
 import express from "express";
 import { AssemblyAI } from "assemblyai";
+import { LOW_CONFIDENCE_WORD_THRESHOLD } from "../versionControl";
 
 const router = express.Router();
 
@@ -10,6 +11,7 @@ const client = new AssemblyAI({
 
 router.post("/", async (req, res) => {
   try {
+    let transcriptId: string | null = null;
     const audioBase64 = req.body.audioBase64;
 
     if (!audioBase64 || !audioBase64.includes("base64")) {
@@ -32,8 +34,39 @@ router.post("/", async (req, res) => {
       audio_url: uploadResponse,
       speech_models: ["universal"],
     });
+    transcriptId = transcriptData.id; 
 
     if (transcriptData.language_code && transcriptData.language_code !== "en") {
+
+      try {
+        await fetch(
+          `https://api.eu.assemblyai.com/v2/transcript/${transcriptData.id}`,
+          {
+            method: "DELETE",
+            headers: {
+              Authorization: process.env.ASSEMBLY_API_KEY!,
+            },
+          },
+        );
+        console.log(`AssemblyAI transcript deleted (non-English): ${transcriptData.id}`);
+      } catch (err) {
+         if (transcriptId) {                     
+        try {
+          await fetch(
+            `https://api.eu.assemblyai.com/v2/transcript/${transcriptId}`,
+            { method: "DELETE", headers: { Authorization: process.env.ASSEMBLY_API_KEY! } },
+          );
+          console.log(`AssemblyAI transcript deleted after error: ${transcriptId}`);
+        } catch (cleanupErr) {
+          console.error(`Failed to delete transcript ${transcriptId} after error:`, cleanupErr);
+        }
+      }
+        console.error(
+          `Failed to delete non-English AssemblyAI transcript ${transcriptData.id}:`,
+          err,
+        );
+      }
+
       res.json({
         transcript: "",
         error: "NON_ENGLISH",
@@ -47,7 +80,7 @@ router.post("/", async (req, res) => {
           words.length
         : null;
 
-    const LOW_CONF_THRESHOLD = 0.92;
+    const LOW_CONF_THRESHOLD = LOW_CONFIDENCE_WORD_THRESHOLD;
 
     const lowConfidenceRaw = words.filter(
       (w: any) => (w.confidence || 0) < LOW_CONF_THRESHOLD,
@@ -56,26 +89,18 @@ router.post("/", async (req, res) => {
     const normalize = (text: string) =>
       text.toLowerCase().replace(/[.,!?]/g, "");
 
-    const lowConfidenceWords = lowConfidenceRaw.map((w: any) =>
-      normalize(w.text),
-    );
+    const lowConfidenceWords = lowConfidenceRaw.map((w: any, i: number) => ({
+  word: normalize(w.text),
+  index: words.indexOf(w), 
+}));
 
     const lowConfidenceRatio =
       words.length > 0 ? lowConfidenceRaw.length / words.length : 0;
-    const alpha = 0.7;
-    const beta = 0.3;
-
-    let calibratedConfidence: number | null = null;
-
-    if (avgConfidence !== null) {
-      calibratedConfidence =
-        avgConfidence * alpha + (1 - lowConfidenceRatio) * beta;
-    }
 
     console.log("Transcript:", transcriptData.text);
     console.log("Avg Confidence:", avgConfidence);
     console.log("Low Confidence Ratio:", lowConfidenceRatio);
-    console.log("Calibrated Confidence:", calibratedConfidence);
+    console.log("Low Confidence Word Count:", lowConfidenceWords.length);
 
     try {
       await fetch(
@@ -98,8 +123,7 @@ router.post("/", async (req, res) => {
     res.json({
       transcript: transcriptData.text || "",
       transcriptId: transcriptData.id,
-      confidence: calibratedConfidence,
-      rawConfidence: avgConfidence,
+      confidence: avgConfidence,
       lowConfidenceWords,
       lowConfidenceRatio,
     });

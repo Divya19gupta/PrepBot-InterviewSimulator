@@ -3,57 +3,68 @@
 export const intentRubric = {
   taskRelevance: {
     definition:
-      "Evaluates whether the participant's response directly addresses the interview question.",
-
+      "Evaluates ONLY whether each part of the response stays on-topic " +
+      "and relates to what the interview question asked — sentence by " +
+      "sentence relevance. This is NOT about whether the SPECIFIC " +
+      "objective of the question was accomplished (that is " +
+      "goalFulfilment's job) — a response can stay entirely on-topic " +
+      "while still failing to accomplish what the question was actually " +
+      "testing for, and vice versa.",
     satisfied:
-      "The response remains focused on the requested task throughout.",
-
+      "Every part of the response relates directly to what was asked, with no off-topic content.",
     partiallySatisfied:
-      "The response is generally relevant but includes unrelated or missing content.",
-
+      "Most of the response is on-topic, but it includes some unrelated content.",
     notSatisfied:
-      "The response does not adequately address the interview question."
-  },
-
-  supportingEvidence: {
-    definition:
-      "Evaluates whether the participant supports their statements with concrete examples, experiences, or details.",
-
-    satisfied:
-      "Claims are consistently supported with relevant examples or experiences.",
-
-    partiallySatisfied:
-      "Some claims are supported, while others lack sufficient evidence.",
-
-    notSatisfied:
-      "Claims are made without meaningful supporting evidence."
-  },
-
-  reasoning: {
-    definition:
-      "Evaluates whether the participant explains why actions, decisions, or conclusions were made.",
-
-    satisfied:
-      "Reasoning is clear, logical, and consistently justified.",
-
-    partiallySatisfied:
-      "Some reasoning is provided but important explanations are missing.",
-
-    notSatisfied:
-      "Little or no reasoning is provided."
+      "Significant parts of the response are unrelated to what was asked.",
   },
 
   goalFulfilment: {
     definition:
-      "Evaluates the extent to which the participant accomplishes the objective of the interview question.",
-
+      "Evaluates ONLY whether the response accomplished the SPECIFIC " +
+      "underlying purpose the question was testing for (e.g. for a " +
+      "'mistake' question, the underlying purpose is showing the mistake " +
+      "was genuinely corrected, not just described). This is NOT about " +
+      "staying on-topic (taskRelevance's job), NOT about whether claims " +
+      "were backed with detail (supportingEvidence's job), and NOT about " +
+      "whether reasoning was explained (reasoning's job) — judge only " +
+      "whether the underlying purpose was achieved, independent of how " +
+      "well-supported or well-reasoned the response was.",
     satisfied:
-      "The response fully achieves the purpose of the interview question.",
-
+      "The response accomplishes the specific underlying purpose the question was testing for.",
     partiallySatisfied:
-      "The response partially achieves the intended objective but misses important elements.",
-
+      "The response partially accomplishes the underlying purpose but falls short in one clear way.",
     notSatisfied:
-      "The response does not achieve the objective of the interview question."
-  }
+      "The response does not accomplish the underlying purpose the question was testing for.",
+  },
+
+  supportingEvidence: {
+    definition:
+      "Evaluates ONLY whether claims are backed by concrete, specific " +
+      "details — names, numbers, examples, particular events. This is " +
+      "NOT about whether the WHY behind actions is explained (that is " +
+      "reasoning's job) — a response can be full of concrete specifics " +
+      "while never explaining why any decision was made, and vice versa.",
+    satisfied:
+      "Claims are consistently backed by concrete, specific details.",
+    partiallySatisfied:
+      "Some claims are backed by specifics, others are stated without any concrete detail.",
+    notSatisfied:
+      "Claims are made with no concrete, specific detail anywhere.",
+  },
+
+  reasoning: {
+    definition:
+      "Evaluates ONLY whether the WHY behind actions or decisions is " +
+      "explained — the motivation or justification, not the factual " +
+      "specifics of what happened. This is NOT about whether concrete " +
+      "detail is present (supportingEvidence's job) — a response can " +
+      "explain its reasoning in general terms with zero concrete " +
+      "specifics, and vice versa.",
+    satisfied:
+      "The reasoning behind actions or decisions is clearly explained throughout.",
+    partiallySatisfied:
+      "Reasoning is explained for some actions or decisions, but not others.",
+    notSatisfied:
+      "No reasoning or justification is given for any action or decision.",
+  },
 } as const;
