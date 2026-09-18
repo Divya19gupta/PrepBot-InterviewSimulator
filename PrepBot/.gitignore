@@ -18,3 +18,4 @@ npm-debug.log*
 
 # Whisper outputs
 *.txt
+.DS_Store
