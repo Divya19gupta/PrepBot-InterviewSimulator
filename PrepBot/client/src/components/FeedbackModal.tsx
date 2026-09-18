@@ -61,7 +61,7 @@ export default function FeedbackModal({
 
   return words.map((word, index) => {
     const clean = normalize(word);
-    const isLow = lowWords.includes(clean);
+   const isLow = lowWords.some((lw: any) => lw.index === index);
 
     return (
       <span
@@ -84,6 +84,7 @@ export default function FeedbackModal({
           <Typography variant="h6" sx={{ mb: 2 }}>
             Feedback ({selectedType})
           </Typography>
+          
           {current?.answer && (
             <Box sx={{ mb: 3 }}>
               <Typography
@@ -92,7 +93,24 @@ export default function FeedbackModal({
               >
                 <strong>Your Answer (Transcribed):</strong>
               </Typography>
-
+ {current?.uncertainty === "visible" &&
+            current?.confidence !== undefined &&
+            current?.confidence !== null && (
+              <Box sx={{
+                backgroundColor: "rgba(239, 148, 2, 0.1)",
+                border: "1px solid rgba(239, 148, 2, 0.4)",
+                borderRadius: 2,
+                p: 1.5,
+                mb: 2,
+              }}>
+                <Typography variant="body2" sx={{ color: "#8a5a00" }}>
+                  The system's average word-recognition confidence was <b>{(current.confidence * 100).toFixed(0)}%.</b>
+                  {current?.lowConfidenceWords?.length > 0
+                    ? ` However, ${current.lowConfidenceWords.length} word${current.lowConfidenceWords.length === 1 ? "" : "s"} (highlighted) may have been misheard.`
+                    : " No words were flagged as uncertain."}
+                </Typography>
+              </Box>
+          )}
               <Typography
                 variant="body2"
                 sx={{
@@ -109,19 +127,7 @@ export default function FeedbackModal({
               </Typography>
             </Box>
           )}
-          {current?.uncertainty === "visible" &&
-            current?.confidence !== undefined &&
-            current?.confidence !== null && (
-              <Typography
-                variant="body2"
-                sx={{ mb: 2, color: "#666" }}
-              >
-               Speech Recognition Confidence: {(current.confidence * 100).toFixed(0)}%
-                {current?.lowConfidenceWords?.length > 0
-                  ? " : some highlighted words may have been transcribed incorrectly."
-                  : " : no transcription issues detected."}
-              </Typography>
-          )}
+         
           <Typography
             variant="subtitle2"
             sx={{ color: "#555", mb: 1 }}

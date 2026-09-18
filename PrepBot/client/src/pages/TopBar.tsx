@@ -2,10 +2,11 @@ import React, { useState, useEffect } from "react";
 import { Box, IconButton, Tooltip, Dialog, DialogTitle, DialogContent, DialogActions, Button, Typography, Fade } from "@mui/material";
 import { useNavigate } from "react-router-dom";
 import HomeIcon from "@mui/icons-material/Home";
-import RestartAltIcon from "@mui/icons-material/RestartAlt";
+import LogoutIcon from "@mui/icons-material/Logout";
 import ContentCopyIcon from "@mui/icons-material/ContentCopyRounded";
 import CheckIcon from "@mui/icons-material/CheckRounded";
 import AIBackdrop from "./AIBackdrop";
+import DebriefDialog from "./DebriefDialog";
 
 const API_URL = import.meta.env.VITE_API_URL || "https://prepbot-server.onrender.com";
 
@@ -16,7 +17,8 @@ interface TopBarProps {
 const TopBar: React.FC<TopBarProps> = ({ color = "#07466E" }) => {
   const navigate = useNavigate();
   const [confirmOpen, setConfirmOpen] = useState(false);
-  const [isResetting, setIsResetting] = useState(false);
+  const [isQuitting, setIsQuitting] = useState(false);
+  const [showDebriefing, setShowDebriefing] = useState(false);
   const [participantId, setParticipantId] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
@@ -45,11 +47,14 @@ const TopBar: React.FC<TopBarProps> = ({ color = "#07466E" }) => {
     }
   };
 
-  const handleReset = async () => {
-  setConfirmOpen(false);
+  const handleQuitConfirmed = () => {
+    setConfirmOpen(false);
+    setShowDebriefing(true); // show debrief BEFORE deleting anything
+  };
 
-  setTimeout(async () => {
-    setIsResetting(true);
+  const handleDebriefClosed = async () => {
+    setShowDebriefing(false);
+    setIsQuitting(true);
 
     const storedUser = localStorage.getItem("userData");
 
@@ -68,7 +73,7 @@ const TopBar: React.FC<TopBarProps> = ({ color = "#07466E" }) => {
         }
       }
     } catch (err) {
-      console.error("Reset failed:", err);
+      console.error("Quit failed:", err);
     }
 
     localStorage.removeItem("userData");
@@ -76,9 +81,7 @@ const TopBar: React.FC<TopBarProps> = ({ color = "#07466E" }) => {
     setTimeout(() => {
       navigate("/", { replace: true });
     }, 500);
-
-  }, 150);
-};
+  };
 
   return (
     <>
@@ -161,31 +164,47 @@ const TopBar: React.FC<TopBarProps> = ({ color = "#07466E" }) => {
           </Fade>
         </Box>
 
-        <Tooltip title="Start Fresh">
+        <Tooltip title="Quit Study">
           <IconButton onClick={() => setConfirmOpen(true)} sx={{ color: "red" }}>
-            <RestartAltIcon />
+            <LogoutIcon />
           </IconButton>
         </Tooltip>
       </Box>
-      <Dialog open={confirmOpen} 
-       PaperProps={{ sx: { position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: '80%', maxWidth: 600, maxHeight: '80vh', overflowY: 'auto', bgcolor: '#fcfcfc', borderRadius: '10px', boxShadow: 24, p: 4, border: '1px solid #ddd', fontFamily: 'Segoe UI, sans-serif' } }}
-      onClose={() => setConfirmOpen(false)}>
-        <DialogTitle>Start Fresh</DialogTitle>
+
+      <Dialog
+        open={confirmOpen}
+        PaperProps={{
+          sx: {
+            position: "absolute", top: "50%", left: "50%",
+            transform: "translate(-50%, -50%)", width: "80%",
+            maxWidth: 600, maxHeight: "80vh", overflowY: "auto",
+            bgcolor: "#fcfcfc", borderRadius: "10px", boxShadow: 24,
+            p: 4, border: "1px solid #ddd", fontFamily: "Segoe UI, sans-serif",
+          },
+        }}
+        onClose={() => setConfirmOpen(false)}
+      >
+        <DialogTitle>Quit Study</DialogTitle>
         <DialogContent>
           <Typography>
-            This will delete your entire session and recordings. Continue?
+            This will end your participation and delete your progress. Are you sure?
           </Typography>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setConfirmOpen(false)}>Cancel</Button>
-          <Button color="error" variant="contained" onClick={handleReset}>
-            Yes, Reset
+          <Button color="error" variant="contained" onClick={handleQuitConfirmed}>
+            Yes, Quit
           </Button>
         </DialogActions>
       </Dialog>
-      {isResetting && (
-      <AIBackdrop open={isResetting} stage="resetting" />
-  )}
+
+      <DebriefDialog
+        open={showDebriefing}
+        mode="withdrawn"
+        onClose={handleDebriefClosed}
+      />
+
+      {isQuitting && <AIBackdrop open={isQuitting} stage="quitting" />}
     </>
   );
 };

@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import {
-  Box, Container, Typography, Button, Chip
+  Box, Container, Typography, Button, Chip, Checkbox, FormControlLabel
 } from "@mui/material";
 import MicIcon from "@mui/icons-material/Mic";
 import RuleIcon from "@mui/icons-material/Rule";
@@ -13,7 +13,9 @@ import { useNavigate } from "react-router-dom";
 
 const IntroScreen = () => {
   const navigate = useNavigate();
-    const [loading, setLoading] = useState(false);
+  const [consentChecked, setConsentChecked] = useState(false);
+  const [loading, setLoading] = useState(false);
+  
   return (
     <Box
       sx={{
@@ -159,8 +161,24 @@ const IntroScreen = () => {
           >
             Estimated time: 15–25 minutes
           </Typography>
+          <FormControlLabel
+  control={
+    <Checkbox
+      checked={consentChecked}
+      onChange={(e) => setConsentChecked(e.target.checked)}
+      sx={{ color: "#07466E", "&.Mui-checked": { color: "#07466E" } }}
+    />
+  }
+  label={
+    <Typography variant="body2" sx={{ color: "#555" }}>
+      I have completed the consent form
+    </Typography>
+  }
+  sx={{ mt: 0.5, alignSelf: "flex-start" }}
+/>
          <Button
   variant="contained"
+  disabled={!consentChecked}
   onClick={() => {
     setLoading(true);
 

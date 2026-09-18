@@ -8,6 +8,7 @@ import { useNavigate } from "react-router-dom";
 import { AvatarHome } from "./AvatarHome";
 import toast from "react-hot-toast";
 import AIBackdrop from "./AIBackdrop";
+import DebriefDialog from "./DebriefDialog";
 
 const API_URL = import.meta.env.VITE_API_URL || "https://prepbot-server.onrender.com";
 
@@ -28,10 +29,11 @@ const Home = () => {
   const [language, setLanguage] = useState("not-fluent");
   const [existingSession, setExistingSession] = useState<any>(null);
   const [isStarting, setIsStarting] = useState(false);
-  const [confirmFreshOpen, setConfirmFreshOpen] = useState(false);
-  const [isResetting, setIsResetting] = useState(false);
+  const [confirmQuitOpen, setConfirmQuitOpen] = useState(false);
+  const [isQuitting, setIsQuitting] = useState(false);
   const [isCheckingSession, setIsCheckingSession] = useState(true);
   const [generatedId, setGeneratedId] = useState("");
+  const [showDebriefing, setShowDebriefing] = useState(false);
 
   useEffect(() => {
     setGeneratedId(generateParticipantId());
@@ -75,6 +77,34 @@ const Home = () => {
       setIsCheckingSession(false);
     }
   }, []);
+
+  const handleQuitConfirmed = () => {
+  setConfirmQuitOpen(false);
+  setShowDebriefing(true); // show debrief BEFORE deleting anything
+};
+const handleDebriefClosed = async () => {
+  setShowDebriefing(false);
+  setIsQuitting(true);
+
+  try {
+    if (existingSession?.sessionId) {
+      await fetch(`${API_URL}/api/session/delete`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sessionId: existingSession.sessionId }),
+      });
+    }
+  } catch (err) {
+    console.error("Delete failed", err);
+  }
+
+  localStorage.clear();
+  setExistingSession(null);
+  setLanguage("not-fluent");
+  setGeneratedId(generateParticipantId());
+
+  setTimeout(() => setIsQuitting(false), 700);
+};
 
   const handleStart = async () => {
     setIsStarting(true);
@@ -123,31 +153,6 @@ const Home = () => {
     }
   };
 
-  const handleStartFresh = async () => {
-    setConfirmFreshOpen(false);
-    setIsResetting(true);
-
-    try {
-      if (existingSession?.sessionId) {
-        await fetch(`${API_URL}/api/session/delete`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ sessionId: existingSession.sessionId }),
-        });
-      }
-    } catch (err) {
-      console.error("Delete failed", err);
-    }
-
-    localStorage.clear();
-    setExistingSession(null);
-    setLanguage("not-fluent");
-    setGeneratedId(generateParticipantId());
-
-    setTimeout(() => {
-      setIsResetting(false);
-    }, 700);
-  };
 
   if (isCheckingSession) {
     return <AIBackdrop open stage="loading" />;
@@ -263,9 +268,9 @@ const Home = () => {
                 width: "80%",
                 "&:hover": { backgroundColor: "white", color: "red" },
               }}
-              onClick={() => setConfirmFreshOpen(true)}
+              onClick={() => setConfirmQuitOpen(true)}
             >
-              Start Fresh
+              Quit Study
             </Button>
           )}
         </Box>
@@ -281,24 +286,26 @@ const Home = () => {
               boxShadow: 24, p: 4, border: "1px solid #ddd",
             },
           }}
-          open={confirmFreshOpen}
-          onClose={() => setConfirmFreshOpen(false)}
+          open={confirmQuitOpen}
+          onClose={() => setConfirmQuitOpen(false)}
         >
-          <DialogTitle>Start Fresh</DialogTitle>
+          <DialogTitle>Quit Study</DialogTitle>
           <DialogContent>
             <Typography>
-              This will delete all your progress. Are you sure?
+              This will end your participation and delete your progress. Are you sure?
             </Typography>
           </DialogContent>
           <DialogActions>
-            <Button onClick={() => setConfirmFreshOpen(false)}>Cancel</Button>
-            <Button variant="contained" color="error" onClick={handleStartFresh}>
-              Yes, Reset
+            <Button onClick={() => setConfirmQuitOpen(false)}>Cancel</Button>
+            <Button variant="contained" color="error" onClick={handleQuitConfirmed}>
+              Yes, Quit
             </Button>
           </DialogActions>
         </Dialog>
 
-        {isResetting && <AIBackdrop open={isResetting} stage="resetting" />}
+        <DebriefDialog open={showDebriefing} mode="withdrawn" onClose={handleDebriefClosed} />
+
+        {isQuitting && <AIBackdrop open={isQuitting} stage="quitting" />}
       </Container>
     </>
   );

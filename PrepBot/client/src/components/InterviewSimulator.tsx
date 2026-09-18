@@ -32,6 +32,7 @@ import toast from "react-hot-toast";
 import AIBackdrop from "../pages/AIBackdrop";
 import RuleIcon from "@mui/icons-material/Rule";
 import PsychologyIcon from "@mui/icons-material/Psychology";
+import DebriefDialog from "../pages/DebriefDialog";
 
 const API_URL =
   import.meta.env.VITE_API_URL || "https://prepbot-server.onrender.com";
@@ -91,7 +92,7 @@ const InterviewSimulator: React.FC = () => {
     | "loading"
     | "transcribing"
     | "evaluating"
-    | "resetting"
+    | "quitting"
     | "starting"
     | "preparing-questions"
     | "submitting"
@@ -406,6 +407,41 @@ autoStopTimerRef.current = setTimeout(() => {
         const resData = await fetchJSON(`${API_URL}/api/transcribe`, {
           audioBase64: base64Audio,
         });
+
+        if (resData?.error === "NON_ENGLISH") {
+          toast.error("This study requires English. Please record your answer in English and try again.");
+
+          setFeedback((prev) => {
+            const updated = [...prev];
+            updated[index] = {
+              question,
+              answer: "",
+              feedbackA: "⚠️ Could not generate feedback. Please try again in English.",
+              feedbackB: "⚠️ Could not generate feedback. Please try again in English.",
+              wrongExplanation: null,
+              uncertainty: "hidden",
+              errorCondition: null,
+              lowConfidenceWords: [],
+              confidence: null,
+              lowConfidenceRatio: 0,
+            };
+            return updated;
+          });
+
+          setAnswers((prev) => {
+            const updated = [...prev];
+            updated[index] = "";
+            return updated;
+          });
+
+          setTranscript("");
+          setLowConfidenceWords([]);
+          setProcessingStage("idle");
+          setIsLoading(false);
+
+          return;
+        }
+
         if (!resData?.transcript || resData.transcript.trim().length === 0) {
           toast.error("No speech detected. Please try again.");
 
@@ -1624,53 +1660,14 @@ if (baseRequired.some((v) => !v) || (q9Required && !q9Influence)) {
                 </DialogActions>
               </Dialog>
 
-              <Dialog
+              <DebriefDialog
                 open={showDebriefing}
-                PaperProps={{
-                  sx: {
-                    borderRadius: "16px",
-                    p: 3,
-                    width: "90%",
-                    maxWidth: 520,
-                    background: "linear-gradient(145deg, #f7faff, #edf4fb)",
-                    boxShadow: "0 10px 30px rgba(0,0,0,0.08)",
-                  },
+                mode="completed"
+                onClose={() => {
+                  setShowDebriefing(false);
+                  navigate("/", { replace: true });
                 }}
-              >
-                <DialogTitle sx={{ fontWeight: 600, color: "#07466E", textAlign: "center" }}>
-                  Study Debrief
-                </DialogTitle>
-                <DialogContent>
-                  <Typography sx={{ fontSize: "0.95rem", color: "#333", lineHeight: 1.7 }}>
-                    Thank you for completing the session. We can now inform you that some feedback presented during 
-                    the study <b>may have contained intentionally introduced evaluation inaccuracies</b>. This was necessary
-                    because informing participants in advance could have influenced responses and
-                    affected the study results.
-                    <br /><br />
-                    Your data will be used <b>solely for research purposes</b>. If, after learning this
-                    information, you would prefer to withdraw your participation or request
-                    deletion of your data, or have any questions you may contact the researcher.
-                  </Typography>
-                </DialogContent>
-                <DialogActions sx={{ justifyContent: "center", pb: 1 }}>
-                  <Button
-                    variant="contained"
-                    onClick={() => {
-                      setShowDebriefing(false);
-                      navigate("/", { replace: true });
-                    }}
-                    sx={{
-                      px: 4,
-                      borderRadius: "18px",
-                      textTransform: "none",
-                      backgroundColor: "#07466E",
-                      "&:hover": { backgroundColor: "#063655" },
-                    }}
-                  >
-                    OK
-                  </Button>
-                </DialogActions>
-              </Dialog>
+              />
             </>
           )}
         </Container>

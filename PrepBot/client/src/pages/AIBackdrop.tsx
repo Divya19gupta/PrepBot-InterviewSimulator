@@ -4,7 +4,7 @@ import { useTheme } from "@mui/material/styles";
 
 type Props = {
   open: boolean;
-  stage?: "transcribing" | "evaluating" | "loading" | "resetting" | "preparing-questions" | "starting" | "submitting";
+  stage?: "transcribing" | "evaluating" | "loading" | "quitting" | "preparing-questions" | "starting" | "submitting";
 };
 
 const AIBackdrop: React.FC<Props> = ({ open, stage = "loading" }) => {
@@ -16,8 +16,8 @@ const AIBackdrop: React.FC<Props> = ({ open, stage = "loading" }) => {
         return "Transcribing";
       case "evaluating":
         return "Evaluating";
-      case "resetting":
-        return "Resetting session";
+      case "quitting":
+        return "Quitting study";
       case "starting":
         return "Starting interview";
     case "preparing-questions":
